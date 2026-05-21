@@ -40,7 +40,7 @@ export default async function NewCallPage() {
 
       <NewCallForm
         currentScheduleId={currentSchedule?.id ?? null}
-        schedules={recentSchedules.map((s: { id: string; weekStart: Date; user: { id: string; name: string | null } }) => ({
+        schedules={recentSchedules.map((s) => ({
           id: s.id,
           weekStart: s.weekStart.toISOString(),
           userName: s.user.name ?? "Unknown",

@@ -201,7 +201,7 @@ async function handleSaveRules(rules: {
     data: { isActive: false },
   });
 
-  const results = [];
+  const results: any[] = [];
   for (const rule of rules) {
     if (rule.id) {
       const updated = await prisma.compensationRule.update({

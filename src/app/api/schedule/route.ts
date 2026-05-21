@@ -84,7 +84,7 @@ async function handleGenerateRotation(body: {
     }
   }
 
-  const schedules = [];
+  const schedules: any[] = [];
   const baseDate = startOfWeek(new Date(startDate), { weekStartsOn: 1 });
 
   for (let i = 0; i < weeks; i++) {
@@ -101,7 +101,7 @@ async function handleGenerateRotation(body: {
   }
 
   // Upsert schedules (skip existing weeks for the same user)
-  const created = [];
+  const created: any[] = [];
   for (const schedule of schedules) {
     try {
       const result = await prisma.schedule.upsert({
