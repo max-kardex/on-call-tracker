@@ -1,8 +1,12 @@
+import { requireAuth } from "@/lib/auth-guard";
 import { Sidebar } from "@/components/nav/sidebar";
 import { MobileNav } from "@/components/nav/mobile-nav";
 import { UserNav } from "@/components/nav/user-nav";
 
-export default function AppLayout({ children }: { children: React.ReactNode }) {
+export default async function AppLayout({ children }: { children: React.ReactNode }) {
+  // Protect all routes under (app) - redirects to /login if not authenticated
+  await requireAuth();
+
   return (
     <div className="h-full">
       <Sidebar />
