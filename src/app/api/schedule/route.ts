@@ -64,7 +64,7 @@ async function handleGenerateRotation(body: {
     engineerIds = engineers.map((e) => e.id);
   }
 
-  if (engineerIds.length === 0) {
+  if (!engineerIds || engineerIds.length === 0) {
     return NextResponse.json(
       { error: "No engineers available for rotation" },
       { status: 400 }
