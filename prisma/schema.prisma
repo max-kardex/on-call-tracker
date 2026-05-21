@@ -1,0 +1,202 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ============ AUTH MODELS (NextAuth) ============
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String?   @unique
+  emailVerified DateTime?
+  image         String?
+  role          UserRole  @default(ENGINEER)
+  isActive      Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  accounts      Account[]
+  sessions      Session[]
+
+  // On-call relations
+  schedules         Schedule[]
+  callLogs          CallLog[]
+  swapRequestsFrom  SwapRequest[] @relation("SwapRequester")
+  swapRequestsTo    SwapRequest[] @relation("SwapTarget")
+  ptoCompensations  PtoCompensation[]
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// ============ APPLICATION MODELS ============
+
+enum UserRole {
+  ADMIN
+  ENGINEER
+}
+
+enum Severity {
+  P1
+  P2
+  P3
+  P4
+}
+
+enum SwapStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+enum SwapType {
+  FULL_WEEK
+  SPECIFIC_DAYS
+}
+
+// Weekly on-call schedule assignment
+model Schedule {
+  id          String   @id @default(cuid())
+  userId      String
+  weekStart   DateTime // Monday of the on-call week
+  weekEnd     DateTime // Sunday end of the on-call week
+  isOverride  Boolean  @default(false)
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user     User      @relation(fields: [userId], references: [id])
+  callLogs CallLog[]
+
+  @@unique([userId, weekStart])
+  @@index([weekStart])
+}
+
+// Individual call log entry
+model CallLog {
+  id          String   @id @default(cuid())
+  scheduleId  String
+  userId      String
+  severity    Severity
+  title       String
+  description String?
+  startTime   DateTime
+  endTime     DateTime?
+  duration    Int?     // Duration in minutes
+  resolution  String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  schedule Schedule @relation(fields: [scheduleId], references: [id])
+  user     User     @relation(fields: [userId], references: [id])
+
+  @@index([scheduleId])
+  @@index([userId])
+  @@index([severity])
+  @@index([startTime])
+}
+
+// Swap request between two engineers
+model SwapRequest {
+  id              String     @id @default(cuid())
+  requesterId     String
+  targetId        String
+  status          SwapStatus @default(PENDING)
+  swapType        SwapType
+  originalWeekStart DateTime
+  specificDays    DateTime[]
+  reason          String?
+  responseNote    String?
+  respondedAt     DateTime?
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+
+  requester User @relation("SwapRequester", fields: [requesterId], references: [id])
+  target    User @relation("SwapTarget", fields: [targetId], references: [id])
+
+  @@index([requesterId])
+  @@index([targetId])
+  @@index([status])
+}
+
+// PTO compensation records
+model PtoCompensation {
+  id          String   @id @default(cuid())
+  userId      String
+  periodStart DateTime
+  periodEnd   DateTime
+  hoursEarned Float
+  reason      String
+  isApproved  Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([periodStart, periodEnd])
+}
+
+// Admin-configurable compensation rules
+model CompensationRule {
+  id          String    @id @default(cuid())
+  name        String
+  description String?
+  ruleType    String    // "base_weekly", "per_call", "severity_multiplier"
+  value       Float
+  severity    Severity?
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+// Slack integration configuration
+model SlackConfig {
+  id                    String  @id @default(cuid())
+  webhookUrl            String
+  channelName           String?
+  notifyOnRotation      Boolean @default(true)
+  notifyOnSwap          Boolean @default(true)
+  notifyOnHighSeverity  Boolean @default(true)
+  isActive              Boolean @default(true)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+}
