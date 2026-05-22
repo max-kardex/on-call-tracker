@@ -3,8 +3,9 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { startOfMonth, endOfMonth, format } from "date-fns";
 import { hasRole } from "@/lib/auth-guard";
+import { getAllHolidays, calculateCallPto, type HolidayEntry } from "@/lib/holidays";
 
- 
+export const runtime = "nodejs";
 
 // GET /api/compensation - Calculate/list compensation
 export async function GET(request: NextRequest) {
@@ -49,26 +50,45 @@ export async function GET(request: NextRequest) {
 }
 
 async function handleCalculate(periodStart: string | null, periodEnd: string | null) {
-  const start = periodStart ? new Date(periodStart) : startOfMonth(new Date());
-  const end = periodEnd ? new Date(periodEnd) : endOfMonth(new Date());
+  const start = periodStart ? new Date(periodStart + "T00:00:00") : startOfMonth(new Date());
+  const end = periodEnd ? new Date(periodEnd + "T23:59:59") : endOfMonth(new Date());
 
   // Get active compensation rules
   const rules = await prisma.compensationRule.findMany({
     where: { isActive: true },
   });
 
-  const baseWeeklyRule = rules.find((r) => r.ruleType === "base_weekly");
-  const perCallRule = rules.find((r) => r.ruleType === "per_call");
-  const severityRules = rules.filter((r) => r.ruleType === "severity_multiplier");
+  // Build severity multiplier map
+  const severityMultipliers: Record<string, number> = {};
+  for (const rule of rules) {
+    if (rule.ruleType === "severity_multiplier" && rule.severity) {
+      severityMultipliers[rule.severity] = rule.value;
+    }
+  }
 
-  // Get all schedules in the period
-  const schedules = await prisma.schedule.findMany({
+  // Get period cap
+  const capRule = rules.find((r) => r.ruleType === "period_cap");
+  const periodCap = capRule?.value ?? null; // null means no cap
+
+  // Get holidays for the period
+  const customHolidaysDb = await prisma.holiday.findMany({
     where: {
-      weekStart: { gte: start, lte: end },
+      date: { gte: start, lte: end },
+    },
+  });
+  const customHolidays: HolidayEntry[] = customHolidaysDb.map((h) => ({
+    date: h.date,
+    name: h.name,
+  }));
+  const allHolidays = getAllHolidays(start, end, customHolidays);
+
+  // Get all call logs in the period (directly, not through schedule)
+  const callLogs = await prisma.callLog.findMany({
+    where: {
+      startTime: { gte: start, lte: end },
     },
     include: {
       user: { select: { id: true, name: true, fullName: true, email: true } },
-      callLogs: true,
     },
   });
 
@@ -76,49 +96,69 @@ async function handleCalculate(periodStart: string | null, periodEnd: string | n
   const compensationByUser: Record<string, {
     userId: string;
     userName: string;
-    weeksOnCall: number;
     totalCalls: number;
     callsBySeverity: Record<string, number>;
-    baseHours: number;
-    callHours: number;
+    regularCalls: number;
+    weekendHolidayCalls: number;
+    totalPtoRaw: number;
     totalHours: number;
+    capped: boolean;
   }> = {};
 
-  for (const schedule of schedules) {
-    const userId = schedule.userId;
+  for (const call of callLogs) {
+    const userId = call.userId;
     if (!compensationByUser[userId]) {
       compensationByUser[userId] = {
         userId,
-        userName: schedule.user.fullName || schedule.user.name || "Unknown",
-        weeksOnCall: 0,
+        userName: call.user.fullName || call.user.name || "Unknown",
         totalCalls: 0,
         callsBySeverity: { P1: 0, P2: 0, P3: 0, P4: 0 },
-        baseHours: 0,
-        callHours: 0,
+        regularCalls: 0,
+        weekendHolidayCalls: 0,
+        totalPtoRaw: 0,
         totalHours: 0,
+        capped: false,
       };
     }
 
     const entry = compensationByUser[userId];
-    entry.weeksOnCall += 1;
-    entry.baseHours += baseWeeklyRule?.value ?? 0;
+    entry.totalCalls += 1;
+    entry.callsBySeverity[call.severity] = (entry.callsBySeverity[call.severity] ?? 0) + 1;
 
-    for (const call of schedule.callLogs) {
-      entry.totalCalls += 1;
-      entry.callsBySeverity[call.severity] = (entry.callsBySeverity[call.severity] ?? 0) + 1;
+    // Calculate PTO for this call
+    const durationMinutes = call.duration ?? 30; // Default 30 min if not set
+    const { pto, timeMult } = calculateCallPto(
+      durationMinutes,
+      call.startTime,
+      call.severity,
+      severityMultipliers,
+      allHolidays
+    );
 
-      // Calculate call compensation
-      const severityMultiplier = severityRules.find((r) => r.severity === call.severity)?.value ?? 1;
-      const perCallHours = perCallRule?.value ?? 0;
-      entry.callHours += perCallHours * severityMultiplier;
+    if (timeMult > 1) {
+      entry.weekendHolidayCalls += 1;
+    } else {
+      entry.regularCalls += 1;
     }
 
-    entry.totalHours = entry.baseHours + entry.callHours;
+    entry.totalPtoRaw += pto;
+  }
+
+  // Apply cap
+  for (const entry of Object.values(compensationByUser)) {
+    if (periodCap !== null && entry.totalPtoRaw > periodCap) {
+      entry.totalHours = periodCap;
+      entry.capped = true;
+    } else {
+      entry.totalHours = entry.totalPtoRaw;
+      entry.capped = false;
+    }
   }
 
   return NextResponse.json({
     period: { start: start.toISOString(), end: end.toISOString() },
     rules: rules.map((r) => ({ name: r.name, type: r.ruleType, value: r.value, severity: r.severity })),
+    periodCap,
     compensation: Object.values(compensationByUser),
   });
 }

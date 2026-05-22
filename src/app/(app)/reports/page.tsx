@@ -15,18 +15,19 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Download, Calculator } from "lucide-react";
+import { Download, Calculator, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 
 interface CompensationEntry {
   userId: string;
   userName: string;
-  weeksOnCall: number;
   totalCalls: number;
   callsBySeverity: Record<string, number>;
-  baseHours: number;
-  callHours: number;
+  regularCalls: number;
+  weekendHolidayCalls: number;
+  totalPtoRaw: number;
   totalHours: number;
+  capped: boolean;
 }
 
 export default function ReportsPage() {
@@ -37,6 +38,7 @@ export default function ReportsPage() {
     format(new Date(), "yyyy-MM-dd")
   );
   const [data, setData] = useState<CompensationEntry[] | null>(null);
+  const [periodCap, setPeriodCap] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
 
   async function handleCalculate() {
@@ -48,6 +50,7 @@ export default function ReportsPage() {
       if (res.ok) {
         const result = await res.json();
         setData(result.compensation);
+        setPeriodCap(result.periodCap);
       } else {
         toast.error("Failed to calculate compensation");
       }
@@ -66,6 +69,7 @@ export default function ReportsPage() {
   }
 
   const totalHours = data?.reduce((sum, entry) => sum + entry.totalHours, 0) ?? 0;
+  const cappedCount = data?.filter((entry) => entry.capped).length ?? 0;
 
   return (
     <div className="space-y-6">
@@ -120,7 +124,7 @@ export default function ReportsPage() {
       {data && (
         <>
           {/* Summary */}
-          <div className="grid gap-4 md:grid-cols-3">
+          <div className="grid gap-4 md:grid-cols-4">
             <Card>
               <CardContent className="pt-6">
                 <p className="text-sm text-muted-foreground">Total Engineers</p>
@@ -141,27 +145,44 @@ export default function ReportsPage() {
                 </p>
               </CardContent>
             </Card>
+            <Card>
+              <CardContent className="pt-6">
+                <p className="text-sm text-muted-foreground">Period Cap</p>
+                <p className="text-2xl font-bold">
+                  {periodCap !== null ? `${periodCap}h` : "None"}
+                </p>
+                {cappedCount > 0 && (
+                  <p className="text-xs text-amber-500 mt-1 flex items-center gap-1">
+                    <AlertTriangle className="h-3 w-3" />
+                    {cappedCount} engineer{cappedCount > 1 ? "s" : ""} capped
+                  </p>
+                )}
+              </CardContent>
+            </Card>
           </div>
 
           {/* Detailed Table */}
           <Card>
             <CardHeader>
               <CardTitle>Compensation Breakdown</CardTitle>
+              <CardDescription>
+                PTO = (call_base &times; time_mult &times; sev_mult) per call, capped at {periodCap ?? "no limit"}h
+              </CardDescription>
             </CardHeader>
             <CardContent className="p-0">
               <Table>
                 <TableHeader>
                   <TableRow>
                     <TableHead>Engineer</TableHead>
-                    <TableHead>Weeks</TableHead>
                     <TableHead>Total Calls</TableHead>
+                    <TableHead>Regular</TableHead>
+                    <TableHead>Wknd/Holiday</TableHead>
                     <TableHead>P1</TableHead>
                     <TableHead>P2</TableHead>
                     <TableHead>P3</TableHead>
                     <TableHead>P4</TableHead>
-                    <TableHead>Base Hours</TableHead>
-                    <TableHead>Call Hours</TableHead>
-                    <TableHead className="font-bold">Total PTO</TableHead>
+                    <TableHead>Raw PTO</TableHead>
+                    <TableHead className="font-bold">Final PTO</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -175,8 +196,15 @@ export default function ReportsPage() {
                     data.map((entry) => (
                       <TableRow key={entry.userId}>
                         <TableCell className="font-medium">{entry.userName}</TableCell>
-                        <TableCell>{entry.weeksOnCall}</TableCell>
                         <TableCell>{entry.totalCalls}</TableCell>
+                        <TableCell>{entry.regularCalls}</TableCell>
+                        <TableCell>
+                          {entry.weekendHolidayCalls > 0 ? (
+                            <Badge variant="secondary">{entry.weekendHolidayCalls}</Badge>
+                          ) : (
+                            "0"
+                          )}
+                        </TableCell>
                         <TableCell>
                           {entry.callsBySeverity.P1 > 0 && (
                             <Badge variant="destructive">{entry.callsBySeverity.P1}</Badge>
@@ -197,9 +225,17 @@ export default function ReportsPage() {
                             <Badge variant="outline">{entry.callsBySeverity.P4}</Badge>
                           )}
                         </TableCell>
-                        <TableCell>{entry.baseHours.toFixed(1)}</TableCell>
-                        <TableCell>{entry.callHours.toFixed(1)}</TableCell>
-                        <TableCell className="font-bold">{entry.totalHours.toFixed(1)}h</TableCell>
+                        <TableCell className="text-muted-foreground">
+                          {entry.totalPtoRaw.toFixed(1)}h
+                        </TableCell>
+                        <TableCell className="font-bold">
+                          <span className="flex items-center gap-1">
+                            {entry.totalHours.toFixed(1)}h
+                            {entry.capped && (
+                              <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />
+                            )}
+                          </span>
+                        </TableCell>
                       </TableRow>
                     ))
                   )}

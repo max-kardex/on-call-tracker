@@ -239,28 +239,36 @@ export default async function GuidePage() {
           <div className="prose prose-sm dark:prose-invert max-w-none">
             <ul className="space-y-2 list-disc pl-5">
               <li>
-                Engineers earn compensatory time off (PTO) for on-call duty based
-                on admin-configured rules.
+                Engineers earn compensatory time off (PTO) <strong>per call handled</strong> during
+                on-call duty. There is no base weekly component.
               </li>
               <li>
-                Compensation is calculated per period (typically monthly) based on
-                the calls handled during your on-call week(s).
+                <strong>Duration:</strong> Any call counts as <strong>1 hour</strong> of PTO.
+                If the call lasted longer than 60 minutes, it counts as <strong>2 hours</strong>.
               </li>
               <li>
-                The formula is:{" "}
-                <code className="bg-muted px-1.5 py-0.5 rounded text-xs">
-                  hours = base_weekly + sum(calls × hours_per_call × severity_multiplier)
-                </code>
+                <strong>Weekend/Holiday multiplier:</strong> Calls handled on weekends or
+                holidays earn <strong>2x</strong> the normal rate.
               </li>
               <li>
-                Reports can be exported as <strong>CSV</strong> for payroll or HR
-                processing.
+                <strong>Severity multiplier:</strong> Each severity level has a configurable
+                multiplier (default 1x for all).
               </li>
               <li>
-                Admins configure the rules under{" "}
-                <strong>Settings → Compensation Rules</strong>.
+                <strong>Period cap:</strong> A maximum PTO hours limit per engineer per report
+                period prevents runaway accumulation.
               </li>
             </ul>
+          </div>
+
+          {/* Formula display */}
+          <div className="bg-muted/50 rounded-md p-4 font-mono text-xs space-y-1">
+            <p>For each call:</p>
+            <p className="ml-4">call_base = (duration &le; 60 min) ? 1h : 2h</p>
+            <p className="ml-4">time_mult = (weekend or holiday) ? 2x : 1x</p>
+            <p className="ml-4">sev_mult  = configured per severity</p>
+            <p className="ml-4 font-bold">call_pto  = call_base &times; time_mult &times; sev_mult</p>
+            <p className="mt-2 font-bold">Total PTO = min( &Sigma; call_pto, period_cap )</p>
           </div>
 
           {/* Live compensation rules table */}
@@ -275,7 +283,7 @@ export default async function GuidePage() {
                     <TableHead>Rule</TableHead>
                     <TableHead>Type</TableHead>
                     <TableHead>Severity</TableHead>
-                    <TableHead className="text-right">Value (hours)</TableHead>
+                    <TableHead className="text-right">Value</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -309,12 +317,14 @@ export default async function GuidePage() {
                           </Badge>
                         ) : (
                           <span className="text-muted-foreground text-xs">
-                            All
+                            &mdash;
                           </span>
                         )}
                       </TableCell>
                       <TableCell className="text-right font-mono">
-                        {rule.value}
+                        {rule.ruleType === "period_cap"
+                          ? `${rule.value}h max`
+                          : `${rule.value}x`}
                       </TableCell>
                     </TableRow>
                   ))}
@@ -327,6 +337,24 @@ export default async function GuidePage() {
               Settings.
             </p>
           )}
+
+          <div className="prose prose-sm dark:prose-invert max-w-none">
+            <ul className="space-y-2 list-disc pl-5">
+              <li>
+                <strong>Holidays:</strong> US federal holidays are included automatically.
+                Admins can add custom company holidays under{" "}
+                <strong>Settings → Compensation Rules</strong>.
+              </li>
+              <li>
+                Reports can be exported as <strong>CSV</strong> for payroll or HR
+                processing.
+              </li>
+              <li>
+                Admins configure multipliers, cap, and holidays under{" "}
+                <strong>Settings → Compensation Rules</strong>.
+              </li>
+            </ul>
+          </div>
         </CardContent>
       </Card>
 

@@ -193,12 +193,23 @@ model CompensationRule {
   id          String    @id @default(cuid())
   name        String
   description String?
-  ruleType    String    // "base_weekly", "per_call", "severity_multiplier"
+  ruleType    String    // "severity_multiplier", "period_cap"
   value       Float
   severity    Severity?
   isActive    Boolean   @default(true)
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
+}
+
+// Custom holidays (US federal holidays are computed at runtime)
+model Holiday {
+  id        String   @id @default(cuid())
+  date      DateTime
+  name      String
+  isCustom  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  @@unique([date])
 }
 
 // Slack integration configuration

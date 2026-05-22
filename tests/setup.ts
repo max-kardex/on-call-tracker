@@ -24,6 +24,7 @@ export const mockPrisma = {
   ptoCompensation: createMockModel(),
   compensationRule: createMockModel(),
   slackConfig: createMockModel(),
+  holiday: createMockModel(),
 };
 
 vi.mock("@/lib/prisma", () => ({

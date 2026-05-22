@@ -41,35 +41,26 @@ describe("GET /api/compensation - list", () => {
   });
 });
 
-describe("GET /api/compensation - calculate", () => {
-  it("calculates compensation per engineer using rules", async () => {
+describe("GET /api/compensation - calculate (new formula)", () => {
+  it("calculates PTO per call: short call on weekday = 1h * sev_mult", async () => {
     mockSession();
+    // Setup rules: P1=2x, P2=1x, period_cap=24
     mockPrisma.compensationRule.findMany.mockResolvedValue([
-      { id: "r1", name: "Base Weekly", ruleType: "base_weekly", value: 4, isActive: true },
-      { id: "r2", name: "Per Call", ruleType: "per_call", value: 1, isActive: true },
-      { id: "r3", name: "P1 Multiplier", ruleType: "severity_multiplier", value: 3, severity: "P1", isActive: true },
-      { id: "r4", name: "P2 Multiplier", ruleType: "severity_multiplier", value: 2, severity: "P2", isActive: true },
+      { id: "r1", name: "P1 Multiplier", ruleType: "severity_multiplier", value: 2, severity: "P1", isActive: true },
+      { id: "r2", name: "P2 Multiplier", ruleType: "severity_multiplier", value: 1, severity: "P2", isActive: true },
+      { id: "r3", name: "Period Cap", ruleType: "period_cap", value: 24, severity: null, isActive: true },
     ]);
+    mockPrisma.holiday.findMany.mockResolvedValue([]);
 
-    mockPrisma.schedule.findMany.mockResolvedValue([
+    // Call on Wednesday (2026-06-03), 45 min, P1 severity
+    mockPrisma.callLog.findMany.mockResolvedValue([
       {
-        id: "s1",
+        id: "c1",
         userId: "u1",
-        weekStart: new Date("2026-06-01"),
-        user: { id: "u1", name: "Alice", email: "a@test.com" },
-        callLogs: [
-          { id: "c1", severity: "P1" },
-          { id: "c2", severity: "P3" },
-        ],
-      },
-      {
-        id: "s2",
-        userId: "u1",
-        weekStart: new Date("2026-06-08"),
-        user: { id: "u1", name: "Alice", email: "a@test.com" },
-        callLogs: [
-          { id: "c3", severity: "P2" },
-        ],
+        severity: "P1",
+        startTime: new Date("2026-06-03T14:00:00"), // Wednesday
+        duration: 45,
+        user: { id: "u1", name: "Alice", fullName: "Alice Johnson", email: "a@test.com" },
       },
     ]);
 
@@ -84,28 +75,235 @@ describe("GET /api/compensation - calculate", () => {
 
     const alice = data.compensation[0];
     expect(alice.userId).toBe("u1");
-    expect(alice.weeksOnCall).toBe(2);
+    expect(alice.totalCalls).toBe(1);
+    // call_base=1 (45 min <= 60), time_mult=1 (weekday), sev_mult=2 (P1)
+    // PTO = 1 * 1 * 2 = 2
+    expect(alice.totalHours).toBe(2);
+    expect(alice.regularCalls).toBe(1);
+    expect(alice.weekendHolidayCalls).toBe(0);
+    expect(alice.capped).toBe(false);
+  });
+
+  it("long call (>60 min) counts as 2h base", async () => {
+    mockSession();
+    mockPrisma.compensationRule.findMany.mockResolvedValue([
+      { id: "r1", ruleType: "severity_multiplier", value: 1, severity: "P3", isActive: true, name: "P3" },
+      { id: "r2", ruleType: "period_cap", value: 24, severity: null, isActive: true, name: "Cap" },
+    ]);
+    mockPrisma.holiday.findMany.mockResolvedValue([]);
+
+    // 90-minute call on a weekday
+    mockPrisma.callLog.findMany.mockResolvedValue([
+      {
+        id: "c1",
+        userId: "u1",
+        severity: "P3",
+        startTime: new Date("2026-06-04T10:00:00"), // Thursday
+        duration: 90,
+        user: { id: "u1", name: "Bob", fullName: null, email: "b@test.com" },
+      },
+    ]);
+
+    const req = new NextRequest(
+      "http://localhost/api/compensation?action=calculate&periodStart=2026-06-01&periodEnd=2026-06-30"
+    );
+    const res = await GET(req);
+    const data = await res.json();
+
+    const bob = data.compensation[0];
+    // call_base=2 (90 min > 60), time_mult=1 (weekday), sev_mult=1 (P3)
+    expect(bob.totalHours).toBe(2);
+  });
+
+  it("weekend call gets 2x time multiplier", async () => {
+    mockSession();
+    mockPrisma.compensationRule.findMany.mockResolvedValue([
+      { id: "r1", ruleType: "severity_multiplier", value: 1, severity: "P2", isActive: true, name: "P2" },
+      { id: "r2", ruleType: "period_cap", value: 24, severity: null, isActive: true, name: "Cap" },
+    ]);
+    mockPrisma.holiday.findMany.mockResolvedValue([]);
+
+    // Saturday call, 30 min, P2
+    mockPrisma.callLog.findMany.mockResolvedValue([
+      {
+        id: "c1",
+        userId: "u1",
+        severity: "P2",
+        startTime: new Date("2026-06-06T03:00:00"), // Saturday
+        duration: 30,
+        user: { id: "u1", name: "Alice", fullName: "Alice", email: "a@test.com" },
+      },
+    ]);
+
+    const req = new NextRequest(
+      "http://localhost/api/compensation?action=calculate&periodStart=2026-06-01&periodEnd=2026-06-30"
+    );
+    const res = await GET(req);
+    const data = await res.json();
+
+    const alice = data.compensation[0];
+    // call_base=1 (30 min <= 60), time_mult=2 (Saturday), sev_mult=1 (P2)
+    expect(alice.totalHours).toBe(2);
+    expect(alice.weekendHolidayCalls).toBe(1);
+    expect(alice.regularCalls).toBe(0);
+  });
+
+  it("holiday call gets 2x time multiplier", async () => {
+    mockSession();
+    mockPrisma.compensationRule.findMany.mockResolvedValue([
+      { id: "r1", ruleType: "severity_multiplier", value: 1, severity: "P4", isActive: true, name: "P4" },
+      { id: "r2", ruleType: "period_cap", value: 24, severity: null, isActive: true, name: "Cap" },
+    ]);
+    // Custom holiday on June 10
+    mockPrisma.holiday.findMany.mockResolvedValue([
+      { id: "h1", date: new Date("2026-06-10T12:00:00"), name: "Company Day", isCustom: true },
+    ]);
+
+    // Call on custom holiday (June 10 = Wednesday)
+    mockPrisma.callLog.findMany.mockResolvedValue([
+      {
+        id: "c1",
+        userId: "u1",
+        severity: "P4",
+        startTime: new Date("2026-06-10T15:00:00"), // Wed but it's a custom holiday
+        duration: 20,
+        user: { id: "u1", name: "Carol", fullName: null, email: "c@test.com" },
+      },
+    ]);
+
+    const req = new NextRequest(
+      "http://localhost/api/compensation?action=calculate&periodStart=2026-06-01&periodEnd=2026-06-30"
+    );
+    const res = await GET(req);
+    const data = await res.json();
+
+    const carol = data.compensation[0];
+    // call_base=1, time_mult=2 (holiday), sev_mult=1 (P4)
+    expect(carol.totalHours).toBe(2);
+    expect(carol.weekendHolidayCalls).toBe(1);
+  });
+
+  it("applies period cap when total exceeds it", async () => {
+    mockSession();
+    mockPrisma.compensationRule.findMany.mockResolvedValue([
+      { id: "r1", ruleType: "severity_multiplier", value: 1, severity: "P1", isActive: true, name: "P1" },
+      { id: "r2", ruleType: "period_cap", value: 5, severity: null, isActive: true, name: "Cap" },
+    ]);
+    mockPrisma.holiday.findMany.mockResolvedValue([]);
+
+    // 4 weekend calls = 4 * (1 * 2 * 1) = 8 total (exceeds cap of 5)
+    mockPrisma.callLog.findMany.mockResolvedValue([
+      { id: "c1", userId: "u1", severity: "P1", startTime: new Date("2026-06-06T10:00:00"), duration: 30, user: { id: "u1", name: "A", fullName: null, email: "a@t.com" } },
+      { id: "c2", userId: "u1", severity: "P1", startTime: new Date("2026-06-07T10:00:00"), duration: 30, user: { id: "u1", name: "A", fullName: null, email: "a@t.com" } },
+      { id: "c3", userId: "u1", severity: "P1", startTime: new Date("2026-06-13T10:00:00"), duration: 30, user: { id: "u1", name: "A", fullName: null, email: "a@t.com" } },
+      { id: "c4", userId: "u1", severity: "P1", startTime: new Date("2026-06-14T10:00:00"), duration: 30, user: { id: "u1", name: "A", fullName: null, email: "a@t.com" } },
+    ]);
+
+    const req = new NextRequest(
+      "http://localhost/api/compensation?action=calculate&periodStart=2026-06-01&periodEnd=2026-06-30"
+    );
+    const res = await GET(req);
+    const data = await res.json();
+
+    const entry = data.compensation[0];
+    expect(entry.totalPtoRaw).toBe(8); // uncapped
+    expect(entry.totalHours).toBe(5); // capped at 5
+    expect(entry.capped).toBe(true);
+    expect(data.periodCap).toBe(5);
+  });
+
+  it("no cap when period_cap rule is missing", async () => {
+    mockSession();
+    mockPrisma.compensationRule.findMany.mockResolvedValue([
+      { id: "r1", ruleType: "severity_multiplier", value: 1, severity: "P1", isActive: true, name: "P1" },
+    ]);
+    mockPrisma.holiday.findMany.mockResolvedValue([]);
+
+    // 2 weekend calls = 4h total
+    mockPrisma.callLog.findMany.mockResolvedValue([
+      { id: "c1", userId: "u1", severity: "P1", startTime: new Date("2026-06-06T10:00:00"), duration: 30, user: { id: "u1", name: "A", fullName: null, email: "a@t.com" } },
+      { id: "c2", userId: "u1", severity: "P1", startTime: new Date("2026-06-07T10:00:00"), duration: 30, user: { id: "u1", name: "A", fullName: null, email: "a@t.com" } },
+    ]);
+
+    const req = new NextRequest(
+      "http://localhost/api/compensation?action=calculate&periodStart=2026-06-01&periodEnd=2026-06-30"
+    );
+    const res = await GET(req);
+    const data = await res.json();
+
+    const entry = data.compensation[0];
+    expect(entry.totalHours).toBe(4);
+    expect(entry.capped).toBe(false);
+    expect(data.periodCap).toBeNull();
+  });
+
+  it("defaults severity multiplier to 1 when not configured", async () => {
+    mockSession();
+    mockPrisma.compensationRule.findMany.mockResolvedValue([
+      { id: "r1", ruleType: "period_cap", value: 24, severity: null, isActive: true, name: "Cap" },
+    ]);
+    mockPrisma.holiday.findMany.mockResolvedValue([]);
+
+    mockPrisma.callLog.findMany.mockResolvedValue([
+      {
+        id: "c1",
+        userId: "u1",
+        severity: "P1",
+        startTime: new Date("2026-06-03T14:00:00"), // Wed
+        duration: 45,
+        user: { id: "u1", name: "A", fullName: null, email: "a@t.com" },
+      },
+    ]);
+
+    const req = new NextRequest(
+      "http://localhost/api/compensation?action=calculate&periodStart=2026-06-01&periodEnd=2026-06-30"
+    );
+    const res = await GET(req);
+    const data = await res.json();
+
+    // call_base=1, time_mult=1, sev_mult=1 (defaulted, not configured)
+    expect(data.compensation[0].totalHours).toBe(1);
+  });
+
+  it("aggregates multiple calls per engineer", async () => {
+    mockSession();
+    mockPrisma.compensationRule.findMany.mockResolvedValue([
+      { id: "r1", ruleType: "severity_multiplier", value: 2, severity: "P1", isActive: true, name: "P1" },
+      { id: "r2", ruleType: "severity_multiplier", value: 1, severity: "P3", isActive: true, name: "P3" },
+      { id: "r3", ruleType: "period_cap", value: 24, severity: null, isActive: true, name: "Cap" },
+    ]);
+    mockPrisma.holiday.findMany.mockResolvedValue([]);
+
+    mockPrisma.callLog.findMany.mockResolvedValue([
+      // Weekday P1, 45min: 1*1*2 = 2
+      { id: "c1", userId: "u1", severity: "P1", startTime: new Date("2026-06-03T14:00:00"), duration: 45, user: { id: "u1", name: "A", fullName: "Alice", email: "a@t.com" } },
+      // Weekend P3, 90min: 2*2*1 = 4
+      { id: "c2", userId: "u1", severity: "P3", startTime: new Date("2026-06-06T03:00:00"), duration: 90, user: { id: "u1", name: "A", fullName: "Alice", email: "a@t.com" } },
+      // Weekday P3, 20min: 1*1*1 = 1
+      { id: "c3", userId: "u1", severity: "P3", startTime: new Date("2026-06-04T09:00:00"), duration: 20, user: { id: "u1", name: "A", fullName: "Alice", email: "a@t.com" } },
+    ]);
+
+    const req = new NextRequest(
+      "http://localhost/api/compensation?action=calculate&periodStart=2026-06-01&periodEnd=2026-06-30"
+    );
+    const res = await GET(req);
+    const data = await res.json();
+
+    const alice = data.compensation[0];
     expect(alice.totalCalls).toBe(3);
-    expect(alice.baseHours).toBe(8); // 2 weeks * 4 hours
-    // P1 call: 1 * 3 = 3 hours
-    // P3 call: 1 * 1 = 1 hour (no severity multiplier, defaults to 1)
-    // P2 call: 1 * 2 = 2 hours
-    expect(alice.callHours).toBe(6); // 3 + 1 + 2
-    expect(alice.totalHours).toBe(14); // 8 + 6
+    expect(alice.callsBySeverity.P1).toBe(1);
+    expect(alice.callsBySeverity.P3).toBe(2);
+    expect(alice.regularCalls).toBe(2);
+    expect(alice.weekendHolidayCalls).toBe(1);
+    // Total: 2 + 4 + 1 = 7
+    expect(alice.totalHours).toBe(7);
   });
 
-  it("handles missing rules gracefully (defaults to 0)", async () => {
+  it("handles no calls gracefully (empty result)", async () => {
     mockSession();
     mockPrisma.compensationRule.findMany.mockResolvedValue([]);
-    mockPrisma.schedule.findMany.mockResolvedValue([
-      {
-        id: "s1",
-        userId: "u1",
-        weekStart: new Date("2026-06-01"),
-        user: { id: "u1", name: "Alice", email: "a@test.com" },
-        callLogs: [{ id: "c1", severity: "P1" }],
-      },
-    ]);
+    mockPrisma.holiday.findMany.mockResolvedValue([]);
+    mockPrisma.callLog.findMany.mockResolvedValue([]);
 
     const req = new NextRequest(
       "http://localhost/api/compensation?action=calculate&periodStart=2026-06-01&periodEnd=2026-06-30"
@@ -113,38 +311,8 @@ describe("GET /api/compensation - calculate", () => {
     const res = await GET(req);
     const data = await res.json();
 
-    const alice = data.compensation[0];
-    expect(alice.baseHours).toBe(0);
-    expect(alice.callHours).toBe(0);
-    expect(alice.totalHours).toBe(0);
-  });
-
-  it("aggregates calls by severity", async () => {
-    mockSession();
-    mockPrisma.compensationRule.findMany.mockResolvedValue([]);
-    mockPrisma.schedule.findMany.mockResolvedValue([
-      {
-        id: "s1",
-        userId: "u1",
-        weekStart: new Date("2026-06-01"),
-        user: { id: "u1", name: "Alice", email: "a@test.com" },
-        callLogs: [
-          { id: "c1", severity: "P1" },
-          { id: "c2", severity: "P1" },
-          { id: "c3", severity: "P3" },
-        ],
-      },
-    ]);
-
-    const req = new NextRequest(
-      "http://localhost/api/compensation?action=calculate&periodStart=2026-06-01&periodEnd=2026-06-30"
-    );
-    const res = await GET(req);
-    const data = await res.json();
-
-    const alice = data.compensation[0];
-    expect(alice.callsBySeverity.P1).toBe(2);
-    expect(alice.callsBySeverity.P3).toBe(1);
+    expect(res.status).toBe(200);
+    expect(data.compensation).toHaveLength(0);
   });
 });
 
@@ -159,7 +327,7 @@ describe("GET /api/compensation - export CSV", () => {
         hoursEarned: 12,
         reason: "June on-call",
         isApproved: true,
-        user: { name: "Alice", email: "alice@test.com" },
+        user: { name: "Alice", fullName: "Alice Johnson", email: "alice@test.com" },
       },
     ]);
 
@@ -174,7 +342,7 @@ describe("GET /api/compensation - export CSV", () => {
 
     const text = await res.text();
     expect(text).toContain("Name,Email,Period Start,Period End,Hours Earned,Reason,Approved");
-    expect(text).toContain("Alice");
+    expect(text).toContain("Alice Johnson");
     expect(text).toContain("alice@test.com");
     expect(text).toContain("12");
     expect(text).toContain("Yes");
@@ -190,7 +358,7 @@ describe("GET /api/compensation - export CSV", () => {
         hoursEarned: 8,
         reason: 'Had a "tough" week',
         isApproved: false,
-        user: { name: "Bob", email: "bob@test.com" },
+        user: { name: "Bob", fullName: null, email: "bob@test.com" },
       },
     ]);
 
@@ -221,6 +389,22 @@ describe("POST /api/compensation - save record", () => {
     });
     const res = await POST(req);
     expect(res.status).toBe(401);
+  });
+
+  it("returns 403 for non-admin users", async () => {
+    mockSession(); // ENGINEER by default
+    const req = new NextRequest("http://localhost/api/compensation", {
+      method: "POST",
+      body: JSON.stringify({
+        userId: "u1",
+        periodStart: "2026-06-01",
+        periodEnd: "2026-06-30",
+        hoursEarned: 8,
+        reason: "Test",
+      }),
+    });
+    const res = await POST(req);
+    expect(res.status).toBe(403);
   });
 
   it("creates a compensation record and returns 201", async () => {
@@ -263,8 +447,8 @@ describe("POST /api/compensation - save rules", () => {
     mockPrisma.compensationRule.create.mockResolvedValue({ id: "rule-new" });
 
     const rules = [
-      { id: "rule-1", name: "Base Weekly", ruleType: "base_weekly", value: 4, isActive: true },
-      { name: "New Rule", ruleType: "per_call", value: 1, isActive: true },
+      { id: "rule-1", name: "P1 Multiplier", ruleType: "severity_multiplier", value: 2, severity: "P1", isActive: true },
+      { name: "Period Cap", ruleType: "period_cap", value: 24, isActive: true },
     ];
 
     const req = new NextRequest("http://localhost/api/compensation", {

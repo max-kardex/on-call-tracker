@@ -71,45 +71,27 @@ async function main() {
   const rules = await Promise.all([
     prisma.compensationRule.create({
       data: {
-        name: "Base Weekly Hours",
-        description: "PTO hours earned per week on-call regardless of calls",
-        ruleType: "base_weekly",
-        value: 4,
-        isActive: true,
-      },
-    }),
-    prisma.compensationRule.create({
-      data: {
-        name: "Per Call Hours",
-        description: "Base PTO hours earned per call handled",
-        ruleType: "per_call",
-        value: 1,
-        isActive: true,
-      },
-    }),
-    prisma.compensationRule.create({
-      data: {
-        name: "P1 Severity Multiplier",
+        name: "P1 Multiplier",
         description: "Multiplier for critical severity calls",
         ruleType: "severity_multiplier",
-        value: 3,
+        value: 1,
         severity: "P1",
         isActive: true,
       },
     }),
     prisma.compensationRule.create({
       data: {
-        name: "P2 Severity Multiplier",
+        name: "P2 Multiplier",
         description: "Multiplier for high severity calls",
         ruleType: "severity_multiplier",
-        value: 2,
+        value: 1,
         severity: "P2",
         isActive: true,
       },
     }),
     prisma.compensationRule.create({
       data: {
-        name: "P3 Severity Multiplier",
+        name: "P3 Multiplier",
         description: "Multiplier for medium severity calls",
         ruleType: "severity_multiplier",
         value: 1,
@@ -119,11 +101,20 @@ async function main() {
     }),
     prisma.compensationRule.create({
       data: {
-        name: "P4 Severity Multiplier",
+        name: "P4 Multiplier",
         description: "Multiplier for low severity calls",
         ruleType: "severity_multiplier",
-        value: 0.5,
+        value: 1,
         severity: "P4",
+        isActive: true,
+      },
+    }),
+    prisma.compensationRule.create({
+      data: {
+        name: "Period Cap",
+        description: "Maximum PTO hours per engineer per report period",
+        ruleType: "period_cap",
+        value: 24,
         isActive: true,
       },
     }),
