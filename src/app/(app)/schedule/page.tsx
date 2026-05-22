@@ -1,7 +1,9 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { format, startOfWeek, addWeeks } from "date-fns";
+import { startOfWeek, addWeeks } from "date-fns";
 import { ScheduleCalendar } from "./schedule-calendar";
+import { ScheduleMonthCalendar } from "./schedule-month-calendar";
+import { ScheduleViewToggle } from "./schedule-view-toggle";
 import { GenerateRotationForm } from "./generate-rotation-form";
 
 export const dynamic = "force-dynamic";
@@ -32,6 +34,15 @@ export default async function SchedulePage() {
 
   const isAdmin = (session?.user as Record<string, unknown>)?.role === "ADMIN";
 
+  const serializedSchedules = schedules.map((s) => ({
+    id: s.id,
+    weekStart: s.weekStart.toISOString(),
+    weekEnd: s.weekEnd.toISOString(),
+    isOverride: s.isOverride,
+    notes: s.notes,
+    user: s.user,
+  }));
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -44,17 +55,17 @@ export default async function SchedulePage() {
         {isAdmin && <GenerateRotationForm engineers={engineers} />}
       </div>
 
-      <ScheduleCalendar
-        schedules={schedules.map((s) => ({
-          id: s.id,
-          weekStart: s.weekStart.toISOString(),
-          weekEnd: s.weekEnd.toISOString(),
-          isOverride: s.isOverride,
-          notes: s.notes,
-          user: s.user,
-        }))}
-        engineers={engineers}
-        isAdmin={isAdmin}
+      <ScheduleViewToggle
+        calendarView={
+          <ScheduleMonthCalendar schedules={serializedSchedules} />
+        }
+        listView={
+          <ScheduleCalendar
+            schedules={serializedSchedules}
+            engineers={engineers}
+            isAdmin={isAdmin}
+          />
+        }
       />
     </div>
   );
