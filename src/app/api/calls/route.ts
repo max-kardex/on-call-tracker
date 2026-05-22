@@ -3,6 +3,8 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { notifyHighSeverityCall } from "@/lib/slack";
 
+export const runtime = "nodejs";
+
 // GET /api/calls - List call logs
 export async function GET(request: NextRequest) {
   const session = await auth();

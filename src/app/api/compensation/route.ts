@@ -3,6 +3,8 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { startOfMonth, endOfMonth, format } from "date-fns";
 
+export const runtime = "nodejs";
+
 // GET /api/compensation - Calculate/list compensation
 export async function GET(request: NextRequest) {
   const session = await auth();

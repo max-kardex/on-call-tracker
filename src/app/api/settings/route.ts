@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
+export const runtime = "nodejs";
+
 // POST /api/settings - Save settings (Slack config)
 export async function POST(request: NextRequest) {
   const session = await auth();
