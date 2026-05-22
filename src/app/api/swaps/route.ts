@@ -3,7 +3,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { notifySwapRequest } from "@/lib/slack";
 
-export const runtime = "nodejs";
+ 
 
 // GET /api/swaps - List swap requests
 export async function GET(request: NextRequest) {

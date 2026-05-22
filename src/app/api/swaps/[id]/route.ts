@@ -3,7 +3,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { startOfWeek, endOfWeek } from "date-fns";
 
-export const runtime = "nodejs";
+ 
 
 // PUT /api/swaps/[id] - Approve or reject a swap
 export async function PUT(

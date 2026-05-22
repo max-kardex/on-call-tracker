@@ -3,7 +3,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { addWeeks, startOfWeek, endOfWeek } from "date-fns";
 
-export const runtime = "nodejs";
+ 
 
 // GET /api/schedule - List schedules
 export async function GET(request: NextRequest) {
