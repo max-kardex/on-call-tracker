@@ -69,7 +69,7 @@ export function mockSession(user: Record<string, unknown> = {}) {
     id: "user-1",
     name: "Test User",
     email: "test@example.com",
-    role: "ENGINEER",
+    roles: ["ENGINEER"],
     ...user,
   };
   mockAuth.mockResolvedValue({ user: defaultUser });
@@ -77,7 +77,23 @@ export function mockSession(user: Record<string, unknown> = {}) {
 }
 
 export function mockAdminSession(user: Record<string, unknown> = {}) {
-  return mockSession({ role: "ADMIN", ...user });
+  return mockSession({ roles: ["ADMIN"], ...user });
+}
+
+export function mockManagerSession(user: Record<string, unknown> = {}) {
+  return mockSession({ roles: ["MANAGER"], ...user });
+}
+
+export function mockSupportSession(user: Record<string, unknown> = {}) {
+  return mockSession({ roles: ["SUPPORT"], ...user });
+}
+
+export function mockEngineerSession(user: Record<string, unknown> = {}) {
+  return mockSession({ roles: ["ENGINEER"], ...user });
+}
+
+export function mockMultiRoleSession(roles: string[], user: Record<string, unknown> = {}) {
+  return mockSession({ roles, ...user });
 }
 
 export function mockNoSession() {

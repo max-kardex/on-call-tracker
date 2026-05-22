@@ -13,8 +13,8 @@ describe("GET /api/users", () => {
   it("returns all users sorted by name", async () => {
     mockSession();
     const users = [
-      { id: "u1", name: "alice", email: "a@test.com", image: null, role: "ENGINEER", isActive: true },
-      { id: "u2", name: "bob", email: "b@test.com", image: null, role: "ADMIN", isActive: true },
+      { id: "u1", name: "alice", email: "a@test.com", image: null, roles: ["ENGINEER"], isActive: true },
+      { id: "u2", name: "bob", email: "b@test.com", image: null, roles: ["ADMIN"], isActive: true },
     ];
     mockPrisma.user.findMany.mockResolvedValue(users);
 
@@ -34,19 +34,18 @@ describe("PUT /api/users", () => {
     mockNoSession();
     const req = new NextRequest("http://localhost/api/users", {
       method: "PUT",
-      body: JSON.stringify({ id: "u1", role: "ADMIN" }),
+      body: JSON.stringify({ id: "u1", roles: ["ADMIN"] }),
     });
     const res = await PUT(req);
     expect(res.status).toBe(401);
   });
 
   it("returns 403 when non-admin tries to update", async () => {
-    mockSession({ id: "user-1", role: "ENGINEER" });
-    mockPrisma.user.findUnique.mockResolvedValue({ role: "ENGINEER" });
+    mockSession({ id: "user-1", roles: ["ENGINEER"] });
 
     const req = new NextRequest("http://localhost/api/users", {
       method: "PUT",
-      body: JSON.stringify({ id: "u2", role: "ADMIN" }),
+      body: JSON.stringify({ id: "u2", roles: ["ADMIN"] }),
     });
     const res = await PUT(req);
     expect(res.status).toBe(403);
@@ -56,11 +55,10 @@ describe("PUT /api/users", () => {
 
   it("returns 400 when no user ID provided", async () => {
     mockAdminSession({ id: "admin-1" });
-    mockPrisma.user.findUnique.mockResolvedValue({ role: "ADMIN" });
 
     const req = new NextRequest("http://localhost/api/users", {
       method: "PUT",
-      body: JSON.stringify({ role: "ADMIN" }),
+      body: JSON.stringify({ roles: ["ADMIN"] }),
     });
     const res = await PUT(req);
     expect(res.status).toBe(400);
@@ -68,36 +66,36 @@ describe("PUT /api/users", () => {
     expect(data.error).toContain("User ID required");
   });
 
-  it("allows admin to update user role", async () => {
+  it("allows admin to update user roles", async () => {
     mockAdminSession({ id: "admin-1" });
-    mockPrisma.user.findUnique.mockResolvedValue({ role: "ADMIN" });
     mockPrisma.user.update.mockResolvedValue({
       id: "u2",
       name: "bob",
+      fullName: "Bob",
       email: "b@test.com",
-      role: "ADMIN",
+      roles: ["ADMIN"],
       isActive: true,
     });
 
     const req = new NextRequest("http://localhost/api/users", {
       method: "PUT",
-      body: JSON.stringify({ id: "u2", role: "ADMIN" }),
+      body: JSON.stringify({ id: "u2", roles: ["ADMIN"] }),
     });
     const res = await PUT(req);
     const data = await res.json();
 
     expect(res.status).toBe(200);
-    expect(data.role).toBe("ADMIN");
+    expect(data.roles).toEqual(["ADMIN"]);
   });
 
   it("allows admin to deactivate a user", async () => {
     mockAdminSession({ id: "admin-1" });
-    mockPrisma.user.findUnique.mockResolvedValue({ role: "ADMIN" });
     mockPrisma.user.update.mockResolvedValue({
       id: "u2",
       name: "bob",
+      fullName: "Bob",
       email: "b@test.com",
-      role: "ENGINEER",
+      roles: ["ENGINEER"],
       isActive: false,
     });
 

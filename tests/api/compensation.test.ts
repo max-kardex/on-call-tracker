@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { NextRequest } from "next/server";
 import { GET, POST } from "@/app/api/compensation/route";
-import { mockPrisma, mockSession, mockNoSession } from "../setup";
+import { mockPrisma, mockSession, mockAdminSession, mockNoSession } from "../setup";
 
 describe("GET /api/compensation - list", () => {
   it("returns 401 when not authenticated", async () => {
@@ -224,7 +224,7 @@ describe("POST /api/compensation - save record", () => {
   });
 
   it("creates a compensation record and returns 201", async () => {
-    mockSession();
+    mockAdminSession();
     mockPrisma.ptoCompensation.create.mockResolvedValue({
       id: "r1",
       userId: "u1",
@@ -258,7 +258,7 @@ describe("POST /api/compensation - save record", () => {
 
 describe("POST /api/compensation - save rules", () => {
   it("deactivates all existing rules then upserts new ones", async () => {
-    mockSession();
+    mockAdminSession();
     mockPrisma.compensationRule.update.mockResolvedValue({ id: "rule-1" });
     mockPrisma.compensationRule.create.mockResolvedValue({ id: "rule-new" });
 

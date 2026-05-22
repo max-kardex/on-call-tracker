@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { NextRequest } from "next/server";
 import { POST } from "@/app/api/settings/route";
-import { mockPrisma, mockSession, mockNoSession } from "../setup";
+import { mockPrisma, mockSession, mockAdminSession, mockNoSession } from "../setup";
 
 describe("POST /api/settings", () => {
   it("returns 401 when not authenticated", async () => {
@@ -19,7 +19,7 @@ describe("POST /api/settings", () => {
   });
 
   it("returns 400 for unknown setting type", async () => {
-    mockSession();
+    mockAdminSession();
     const req = new NextRequest("http://localhost/api/settings", {
       method: "POST",
       body: JSON.stringify({ type: "unknown" }),
@@ -31,7 +31,7 @@ describe("POST /api/settings", () => {
   });
 
   it("creates new Slack config when no id provided", async () => {
-    mockSession();
+    mockAdminSession();
     mockPrisma.slackConfig.create.mockResolvedValue({
       id: "config-1",
       webhookUrl: "https://hooks.slack.com/test",
@@ -69,7 +69,7 @@ describe("POST /api/settings", () => {
   });
 
   it("updates existing Slack config when id provided", async () => {
-    mockSession();
+    mockAdminSession();
     mockPrisma.slackConfig.update.mockResolvedValue({
       id: "config-1",
       webhookUrl: "https://hooks.slack.com/updated",
@@ -106,7 +106,7 @@ describe("POST /api/settings", () => {
   });
 
   it("preserves notification toggles on update", async () => {
-    mockSession();
+    mockAdminSession();
     mockPrisma.slackConfig.update.mockResolvedValue({ id: "config-1" });
 
     const req = new NextRequest("http://localhost/api/settings", {

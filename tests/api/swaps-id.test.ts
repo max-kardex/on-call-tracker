@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { NextRequest } from "next/server";
 import { PUT } from "@/app/api/swaps/[id]/route";
-import { mockPrisma, mockSession, mockNoSession } from "../setup";
+import { mockPrisma, mockSession, mockAdminSession, mockNoSession } from "../setup";
 
 function createParams(id: string) {
   return { params: Promise.resolve({ id }) };
@@ -52,8 +52,8 @@ describe("PUT /api/swaps/[id]", () => {
     expect(res.status).toBe(404);
   });
 
-  it("returns 403 when non-target tries to approve", async () => {
-    mockSession({ id: "user-1" });
+  it("returns 403 when non-target ENGINEER tries to approve", async () => {
+    mockSession({ id: "user-1", roles: ["ENGINEER"] });
     mockPrisma.swapRequest.findUnique.mockResolvedValue({
       id: "sw1",
       requesterId: "user-2",
@@ -68,12 +68,10 @@ describe("PUT /api/swaps/[id]", () => {
     });
     const res = await PUT(req, createParams("sw1"));
     expect(res.status).toBe(403);
-    const data = await res.json();
-    expect(data.error).toContain("Only the target can approve");
   });
 
-  it("returns 403 when non-target tries to reject", async () => {
-    mockSession({ id: "user-1" });
+  it("returns 403 when requester tries to approve own request", async () => {
+    mockSession({ id: "user-2", roles: ["ENGINEER"] });
     mockPrisma.swapRequest.findUnique.mockResolvedValue({
       id: "sw1",
       requesterId: "user-2",
@@ -84,7 +82,7 @@ describe("PUT /api/swaps/[id]", () => {
 
     const req = new NextRequest("http://localhost/api/swaps/sw1", {
       method: "PUT",
-      body: JSON.stringify({ action: "reject" }),
+      body: JSON.stringify({ action: "approve" }),
     });
     const res = await PUT(req, createParams("sw1"));
     expect(res.status).toBe(403);
@@ -111,7 +109,7 @@ describe("PUT /api/swaps/[id]", () => {
   });
 
   it("allows target to approve", async () => {
-    mockSession({ id: "user-2" });
+    mockSession({ id: "user-2", roles: ["ENGINEER"] });
     mockPrisma.swapRequest.findUnique.mockResolvedValue({
       id: "sw1",
       requesterId: "user-1",
@@ -146,7 +144,7 @@ describe("PUT /api/swaps/[id]", () => {
   });
 
   it("allows target to reject", async () => {
-    mockSession({ id: "user-2" });
+    mockSession({ id: "user-2", roles: ["ENGINEER"] });
     mockPrisma.swapRequest.findUnique.mockResolvedValue({
       id: "sw1",
       requesterId: "user-1",
@@ -205,7 +203,7 @@ describe("PUT /api/swaps/[id]", () => {
   });
 
   it("performs schedule swap on approve (full week)", async () => {
-    mockSession({ id: "user-2" });
+    mockSession({ id: "user-2", roles: ["ENGINEER"] });
     mockPrisma.swapRequest.findUnique.mockResolvedValue({
       id: "sw1",
       requesterId: "user-1",

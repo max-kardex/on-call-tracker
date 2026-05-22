@@ -19,7 +19,7 @@ async function main() {
       create: {
         name: "Alice Johnson",
         email: "alice@example.com",
-        role: "ADMIN",
+        roles: ["ADMIN", "ENGINEER"],
         isActive: true,
       },
     }),
@@ -29,7 +29,7 @@ async function main() {
       create: {
         name: "Bob Smith",
         email: "bob@example.com",
-        role: "ENGINEER",
+        roles: ["ENGINEER"],
         isActive: true,
       },
     }),
@@ -39,7 +39,7 @@ async function main() {
       create: {
         name: "Carol Williams",
         email: "carol@example.com",
-        role: "ENGINEER",
+        roles: ["MANAGER"],
         isActive: true,
       },
     }),
@@ -49,7 +49,7 @@ async function main() {
       create: {
         name: "Dave Brown",
         email: "dave@example.com",
-        role: "ENGINEER",
+        roles: ["ENGINEER"],
         isActive: true,
       },
     }),
@@ -59,7 +59,7 @@ async function main() {
       create: {
         name: "Eve Davis",
         email: "eve@example.com",
-        role: "ENGINEER",
+        roles: ["SUPPORT"],
         isActive: true,
       },
     }),

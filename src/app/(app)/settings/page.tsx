@@ -4,18 +4,19 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CompensationRulesForm } from "./compensation-rules-form";
 import { SlackConfigForm } from "./slack-config-form";
 import { TeamManagement } from "./team-management";
+import { hasRole } from "@/lib/auth-guard";
 
 export const dynamic = "force-dynamic";
 
 export default async function SettingsPage() {
   const session = await auth();
-  const isAdmin = (session?.user as Record<string, unknown>)?.role === "ADMIN";
+  const isAdmin = hasRole(session, "ADMIN");
 
   const [rules, slackConfig, users] = await Promise.all([
     prisma.compensationRule.findMany({ orderBy: { ruleType: "asc" } }),
     prisma.slackConfig.findFirst({ where: { isActive: true } }),
     prisma.user.findMany({
-      select: { id: true, name: true, fullName: true, email: true, role: true, isActive: true, image: true },
+      select: { id: true, name: true, fullName: true, email: true, roles: true, isActive: true, image: true },
       orderBy: { name: "asc" },
     }),
   ]);
@@ -40,7 +41,7 @@ export default async function SettingsPage() {
           <TeamManagement
             users={users.map((u) => ({
               ...u,
-              role: u.role as string,
+              roles: u.roles as string[],
             }))}
             isAdmin={isAdmin}
           />

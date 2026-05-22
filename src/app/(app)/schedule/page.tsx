@@ -6,6 +6,7 @@ import { ScheduleCalendar } from "./schedule-calendar";
 import { ScheduleMonthCalendar } from "./schedule-month-calendar";
 import { ScheduleViewToggle } from "./schedule-view-toggle";
 import { GenerateRotationForm } from "./generate-rotation-form";
+import { hasAnyRole } from "@/lib/auth-guard";
 
 export const dynamic = "force-dynamic";
 
@@ -34,7 +35,7 @@ export default async function SchedulePage() {
     orderBy: { name: "asc" },
   });
 
-  const isAdmin = (session?.user as Record<string, unknown>)?.role === "ADMIN";
+  const canManage = hasAnyRole(session, ["ADMIN", "MANAGER"]);
 
   // Serialize dates as YYYY-MM-DD to avoid timezone issues on the client
   const serializedSchedules = schedules.map((s) => ({
@@ -74,7 +75,7 @@ export default async function SchedulePage() {
             Weekly on-call rotation for the next 12 weeks
           </p>
         </div>
-        {isAdmin && <GenerateRotationForm engineers={engineers} />}
+        {canManage && <GenerateRotationForm engineers={engineers} />}
       </div>
 
       <ScheduleViewToggle
@@ -89,7 +90,7 @@ export default async function SchedulePage() {
           <ScheduleCalendar
             schedules={serializedSchedules}
             engineers={engineers}
-            isAdmin={isAdmin}
+            isAdmin={canManage}
             openWeeks={openWeeks}
             currentUserId={currentUserId}
           />

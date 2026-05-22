@@ -2,10 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { startOfWeek, endOfWeek } from "date-fns";
+import { canApproveSwap } from "@/lib/auth-guard";
 
  
 
-// PUT /api/swaps/[id] - Approve or reject a swap
+// PUT /api/swaps/[id] - Approve, reject, or cancel a swap
 export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -38,12 +39,24 @@ export async function PUT(
     return NextResponse.json({ error: "Swap request not found" }, { status: 404 });
   }
 
-  // Only the target can approve/reject, only the requester can cancel
-  if (action === "cancel" && swap.requesterId !== session.user.id) {
-    return NextResponse.json({ error: "Only the requester can cancel" }, { status: 403 });
+  // Cancel: only the requester can cancel their own request
+  if (action === "cancel") {
+    if (swap.requesterId !== session.user.id) {
+      return NextResponse.json({ error: "Only the requester can cancel" }, { status: 403 });
+    }
   }
-  if ((action === "approve" || action === "reject") && swap.targetId !== session.user.id) {
-    return NextResponse.json({ error: "Only the target can approve or reject" }, { status: 403 });
+
+  // Approve/Reject: uses permission helper
+  // - Requester can NEVER approve their own request (even if admin/manager)
+  // - Target can always approve/reject (consent-based)
+  // - MANAGER or ADMIN can approve/reject (override authority) unless they're the requester
+  if (action === "approve" || action === "reject") {
+    if (!canApproveSwap(session, { requesterId: swap.requesterId, targetId: swap.targetId })) {
+      return NextResponse.json(
+        { error: "You do not have permission to approve or reject this swap" },
+        { status: 403 }
+      );
+    }
   }
 
   const statusMap: Record<string, "APPROVED" | "REJECTED" | "CANCELLED"> = {

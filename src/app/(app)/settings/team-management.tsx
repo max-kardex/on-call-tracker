@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -13,14 +14,23 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { toast } from "sonner";
-import { ShieldCheck, UserCog, UserCheck, UserX } from "lucide-react";
+import { Save, UserCheck, UserX } from "lucide-react";
+
+const ALL_ROLES = ["ADMIN", "MANAGER", "ENGINEER", "SUPPORT"] as const;
+
+const ROLE_COLORS: Record<string, "default" | "secondary" | "outline" | "destructive"> = {
+  ADMIN: "default",
+  MANAGER: "secondary",
+  ENGINEER: "outline",
+  SUPPORT: "secondary",
+};
 
 interface User {
   id: string;
   name: string | null;
   fullName: string | null;
   email: string | null;
-  role: string;
+  roles: string[];
   isActive: boolean;
   image: string | null;
 }
@@ -31,19 +41,43 @@ interface Props {
 }
 
 export function TeamManagement({ users, isAdmin }: Props) {
-  async function toggleRole(userId: string, currentRole: string) {
-    const newRole = currentRole === "ADMIN" ? "ENGINEER" : "ADMIN";
+  const [editingUser, setEditingUser] = useState<string | null>(null);
+  const [editRoles, setEditRoles] = useState<string[]>([]);
+
+  function startEditing(user: User) {
+    setEditingUser(user.id);
+    setEditRoles([...user.roles]);
+  }
+
+  function cancelEditing() {
+    setEditingUser(null);
+    setEditRoles([]);
+  }
+
+  function toggleEditRole(role: string) {
+    setEditRoles((prev) =>
+      prev.includes(role) ? prev.filter((r) => r !== role) : [...prev, role]
+    );
+  }
+
+  async function saveRoles(userId: string) {
+    if (editRoles.length === 0) {
+      toast.error("User must have at least one role");
+      return;
+    }
     try {
       const res = await fetch("/api/users", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: userId, role: newRole }),
+        body: JSON.stringify({ id: userId, roles: editRoles }),
       });
       if (res.ok) {
-        toast.success(`Role updated to ${newRole}`);
+        toast.success("Roles updated successfully");
+        setEditingUser(null);
         window.location.reload();
       } else {
-        toast.error("Failed to update role");
+        const data = await res.json();
+        toast.error(data.error || "Failed to update roles");
       }
     } catch {
       toast.error("An error occurred");
@@ -73,16 +107,16 @@ export function TeamManagement({ users, isAdmin }: Props) {
       <CardHeader>
         <CardTitle>Team Members</CardTitle>
         <CardDescription>
-          Manage engineers in the on-call rotation. Only active engineers are included in rotation generation.
+          Manage team members and their roles. Only users with the Engineer role are included in rotation generation.
         </CardDescription>
       </CardHeader>
       <CardContent className="p-0">
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Engineer</TableHead>
+              <TableHead>Member</TableHead>
               <TableHead>Email</TableHead>
-              <TableHead>Role</TableHead>
+              <TableHead>Roles</TableHead>
               <TableHead>Status</TableHead>
               {isAdmin && <TableHead>Actions</TableHead>}
             </TableRow>
@@ -91,6 +125,8 @@ export function TeamManagement({ users, isAdmin }: Props) {
             {users.map((user) => {
               const displayName = user.fullName ?? user.name ?? "Unknown";
               const initials = displayName.split(" ").map((n) => n[0]).join("") || "?";
+              const isEditing = editingUser === user.id;
+
               return (
                 <TableRow key={user.id}>
                   <TableCell>
@@ -104,9 +140,28 @@ export function TeamManagement({ users, isAdmin }: Props) {
                   </TableCell>
                   <TableCell className="text-muted-foreground">{user.email}</TableCell>
                   <TableCell>
-                    <Badge variant={user.role === "ADMIN" ? "default" : "secondary"}>
-                      {user.role}
-                    </Badge>
+                    {isEditing ? (
+                      <div className="flex flex-wrap gap-1">
+                        {ALL_ROLES.map((role) => (
+                          <Badge
+                            key={role}
+                            variant={editRoles.includes(role) ? "default" : "outline"}
+                            className="cursor-pointer select-none"
+                            onClick={() => toggleEditRole(role)}
+                          >
+                            {role}
+                          </Badge>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="flex flex-wrap gap-1">
+                        {user.roles.map((role) => (
+                          <Badge key={role} variant={ROLE_COLORS[role] ?? "secondary"}>
+                            {role}
+                          </Badge>
+                        ))}
+                      </div>
+                    )}
                   </TableCell>
                   <TableCell>
                     <Badge variant={user.isActive ? "outline" : "destructive"}>
@@ -116,22 +171,35 @@ export function TeamManagement({ users, isAdmin }: Props) {
                   {isAdmin && (
                     <TableCell>
                       <div className="flex items-center gap-2">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => toggleRole(user.id, user.role)}
-                        >
-                          {user.role === "ADMIN" ? <UserCog className="h-4 w-4" /> : <ShieldCheck className="h-4 w-4" />}
-                          {user.role === "ADMIN" ? "Make Engineer" : "Make Admin"}
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant={user.isActive ? "ghost" : "outline"}
-                          onClick={() => toggleActive(user.id, user.isActive)}
-                        >
-                          {user.isActive ? <UserX className="h-4 w-4" /> : <UserCheck className="h-4 w-4" />}
-                          {user.isActive ? "Deactivate" : "Activate"}
-                        </Button>
+                        {isEditing ? (
+                          <>
+                            <Button size="sm" onClick={() => saveRoles(user.id)}>
+                              <Save className="h-4 w-4" />
+                              Save
+                            </Button>
+                            <Button size="sm" variant="ghost" onClick={cancelEditing}>
+                              Cancel
+                            </Button>
+                          </>
+                        ) : (
+                          <>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => startEditing(user)}
+                            >
+                              Edit Roles
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant={user.isActive ? "ghost" : "outline"}
+                              onClick={() => toggleActive(user.id, user.isActive)}
+                            >
+                              {user.isActive ? <UserX className="h-4 w-4" /> : <UserCheck className="h-4 w-4" />}
+                              {user.isActive ? "Deactivate" : "Activate"}
+                            </Button>
+                          </>
+                        )}
                       </div>
                     </TableCell>
                   )}

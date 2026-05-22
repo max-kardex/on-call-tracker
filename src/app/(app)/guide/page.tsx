@@ -376,34 +376,55 @@ export default async function GuidePage() {
             Roles & Permissions
           </CardTitle>
           <CardDescription>
-            What each role can do
+            Users can have multiple roles. Permissions are additive across roles.
           </CardDescription>
         </CardHeader>
         <CardContent className="prose prose-sm dark:prose-invert max-w-none">
           <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <h4 className="font-semibold text-sm mb-2">Support</h4>
+              <ul className="space-y-1 list-disc pl-5 text-sm">
+                <li>View schedules, calls, and reports</li>
+                <li>Read-only access to all data</li>
+              </ul>
+            </div>
             <div>
               <h4 className="font-semibold text-sm mb-2">Engineer</h4>
               <ul className="space-y-1 list-disc pl-5 text-sm">
                 <li>View schedule and dashboard</li>
                 <li>Self-assign to open weeks</li>
                 <li>Withdraw from self-assigned weeks</li>
-                <li>Log and manage own calls</li>
-                <li>Request and respond to swaps</li>
+                <li>Log calls</li>
+                <li>Request swaps and accept/decline incoming swaps</li>
+                <li>View compensation reports</li>
+                <li>Included in rotation generation pool</li>
+              </ul>
+            </div>
+            <div>
+              <h4 className="font-semibold text-sm mb-2">Manager</h4>
+              <ul className="space-y-1 list-disc pl-5 text-sm">
+                <li>Log calls</li>
+                <li>Generate rotation schedules</li>
+                <li>Assign, reassign, or delete any schedule entry</li>
+                <li>Approve or reject any swap request</li>
                 <li>View compensation reports</li>
               </ul>
             </div>
             <div>
               <h4 className="font-semibold text-sm mb-2">Admin</h4>
               <ul className="space-y-1 list-disc pl-5 text-sm">
-                <li>Everything engineers can do, plus:</li>
-                <li>Generate rotation schedules</li>
-                <li>Reassign or delete any week</li>
-                <li>Manage team members (activate/deactivate, role changes)</li>
+                <li>Everything managers can do, plus:</li>
+                <li>Manage team members (activate/deactivate, assign roles)</li>
                 <li>Configure compensation rules</li>
                 <li>Configure Slack webhook integration</li>
+                <li>Self-assign and request swaps</li>
               </ul>
             </div>
           </div>
+          <p className="text-xs text-muted-foreground mt-4">
+            Note: A user who requests a swap can never approve their own request,
+            even if they have Manager or Admin roles.
+          </p>
         </CardContent>
       </Card>
     </div>

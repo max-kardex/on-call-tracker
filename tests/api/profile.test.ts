@@ -33,7 +33,7 @@ describe("GET /api/profile", () => {
       fullName: "Alice Smith",
       email: "alice@test.com",
       image: null,
-      role: "ENGINEER",
+      roles: ["ENGINEER"],
       preferredContact: "SLACK",
       onboarded: true,
       createdAt: new Date("2026-01-01"),

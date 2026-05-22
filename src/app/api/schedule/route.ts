@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { addWeeks, startOfWeek, endOfWeek, isBefore, startOfDay } from "date-fns";
 import { notifyVolunteer } from "@/lib/slack";
+import { hasAnyRole, canSelfAssign, canManageSchedule } from "@/lib/auth-guard";
 
 export const runtime = "nodejs";
 
@@ -43,10 +44,22 @@ export async function POST(request: NextRequest) {
   const { action } = body;
 
   if (action === "generate") {
+    // Only MANAGER or ADMIN can generate rotations
+    if (!canManageSchedule(session)) {
+      return NextResponse.json({ error: "Forbidden: insufficient permissions" }, { status: 403 });
+    }
     return handleGenerateRotation(body);
   } else if (action === "self-assign") {
+    // Only ENGINEER or ADMIN can self-assign
+    if (!canSelfAssign(session)) {
+      return NextResponse.json({ error: "Forbidden: insufficient permissions" }, { status: 403 });
+    }
     return handleSelfAssign(session, body);
   } else {
+    // Create entry for others - only MANAGER or ADMIN
+    if (!canManageSchedule(session)) {
+      return NextResponse.json({ error: "Forbidden: insufficient permissions" }, { status: 403 });
+    }
     return handleCreateEntry(body);
   }
 }
@@ -119,10 +132,10 @@ async function handleGenerateRotation(body: {
   const { startDate, weeks } = body;
   let { engineerIds } = body;
 
-  // If no specific engineers provided, use all active engineers
+  // If no specific engineers provided, use all active users with ENGINEER role
   if (!engineerIds || engineerIds.length === 0) {
     const engineers = await prisma.user.findMany({
-      where: { isActive: true },
+      where: { isActive: true, roles: { has: "ENGINEER" } },
       select: { id: true },
       orderBy: { name: "asc" },
     });
@@ -269,6 +282,11 @@ export async function PUT(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  // Only MANAGER or ADMIN can update schedule entries
+  if (!canManageSchedule(session)) {
+    return NextResponse.json({ error: "Forbidden: insufficient permissions" }, { status: 403 });
+  }
+
   const body = await request.json();
   const { id, userId, notes } = body;
 
@@ -278,7 +296,7 @@ export async function PUT(request: NextRequest) {
       ...(userId && { userId }),
       ...(notes !== undefined && { notes }),
       isOverride: true,
-      isSelfAssigned: false, // Admin override clears self-assigned status
+      isSelfAssigned: false, // Override clears self-assigned status
     },
     include: { user: { select: { id: true, name: true, fullName: true, email: true } } },
   });
@@ -300,21 +318,31 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ error: "ID required" }, { status: 400 });
   }
 
-  const userRole = (session.user as any)?.role;
-  const userId = (session.user as any)?.id;
+  const userId = session.user.id;
 
-  // Non-admins can only delete their own self-assigned entries
-  if (userRole !== "ADMIN") {
-    const schedule = await prisma.schedule.findUnique({ where: { id } });
-    if (!schedule) {
-      return NextResponse.json({ error: "Not found" }, { status: 404 });
-    }
-    if (schedule.userId !== userId || !schedule.isSelfAssigned) {
-      return NextResponse.json(
-        { error: "You can only withdraw your own self-assigned weeks" },
-        { status: 403 }
-      );
-    }
+  // MANAGER or ADMIN can delete any entry
+  if (canManageSchedule(session)) {
+    await prisma.schedule.delete({ where: { id } });
+    return NextResponse.json({ success: true });
+  }
+
+  // Only ENGINEER or ADMIN can delete their own self-assigned entries
+  if (!canSelfAssign(session)) {
+    return NextResponse.json(
+      { error: "Forbidden: insufficient permissions" },
+      { status: 403 }
+    );
+  }
+
+  const schedule = await prisma.schedule.findUnique({ where: { id } });
+  if (!schedule) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+  if (schedule.userId !== userId || !schedule.isSelfAssigned) {
+    return NextResponse.json(
+      { error: "You can only withdraw your own self-assigned weeks" },
+      { status: 403 }
+    );
   }
 
   await prisma.schedule.delete({ where: { id } });

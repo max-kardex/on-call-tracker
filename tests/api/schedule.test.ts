@@ -5,6 +5,7 @@ import {
   mockPrisma,
   mockSession,
   mockAdminSession,
+  mockManagerSession,
   mockNoSession,
   mockSlack,
 } from "../setup";
@@ -139,7 +140,7 @@ describe("POST /api/schedule - self-assign", () => {
 
 describe("POST /api/schedule - generate rotation", () => {
   it("uses all active engineers when none specified", async () => {
-    mockSession();
+    mockManagerSession();
     mockPrisma.user.findMany.mockResolvedValue([
       { id: "u1" },
       { id: "u2" },
@@ -163,12 +164,12 @@ describe("POST /api/schedule - generate rotation", () => {
     expect(res.status).toBe(200);
     expect(data.count).toBe(3);
     expect(mockPrisma.user.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { isActive: true } })
+      expect.objectContaining({ where: { isActive: true, roles: { has: "ENGINEER" } } })
     );
   });
 
   it("returns 400 if no engineers available", async () => {
-    mockSession();
+    mockManagerSession();
     mockPrisma.user.findMany.mockResolvedValue([]);
 
     const req = new NextRequest("http://localhost/api/schedule", {
@@ -180,7 +181,7 @@ describe("POST /api/schedule - generate rotation", () => {
   });
 
   it("skips already-assigned weeks", async () => {
-    mockSession();
+    mockManagerSession();
     // The handler computes startOfWeek(new Date("2027-06-01T12:00:00"), {weekStartsOn:1})
     // which gives Monday 2027-06-01 (since Jun 1 2027 IS a Monday according to date-fns behavior, but let's
     // compute to match exactly what the handler produces).
@@ -215,7 +216,7 @@ describe("POST /api/schedule - generate rotation", () => {
   });
 
   it("deprioritizes self-assigned engineers in rotation order", async () => {
-    mockSession();
+    mockManagerSession();
     // u2 is self-assigned in the window
     mockPrisma.schedule.findMany.mockResolvedValue([
       { weekStart: new Date("2027-06-02T00:00:00Z"), userId: "u2", isSelfAssigned: true },
@@ -255,7 +256,7 @@ describe("POST /api/schedule - generate rotation", () => {
 
 describe("POST /api/schedule - create entry", () => {
   it("creates a manual override entry", async () => {
-    mockSession();
+    mockManagerSession();
     mockPrisma.schedule.create.mockResolvedValue({
       id: "s1",
       userId: "u1",
@@ -297,7 +298,7 @@ describe("PUT /api/schedule", () => {
   });
 
   it("updates schedule entry and clears self-assigned flag", async () => {
-    mockSession();
+    mockManagerSession();
     mockPrisma.schedule.update.mockResolvedValue({
       id: "s1",
       userId: "u2",
@@ -353,7 +354,7 @@ describe("DELETE /api/schedule", () => {
   });
 
   it("allows non-admin to delete own self-assigned entry", async () => {
-    mockSession({ id: "user-1", role: "ENGINEER" });
+    mockSession({ id: "user-1", roles: ["ENGINEER"] });
     mockPrisma.schedule.findUnique.mockResolvedValue({
       id: "s1",
       userId: "user-1",
@@ -368,7 +369,7 @@ describe("DELETE /api/schedule", () => {
   });
 
   it("rejects non-admin deleting others entry (403)", async () => {
-    mockSession({ id: "user-1", role: "ENGINEER" });
+    mockSession({ id: "user-1", roles: ["ENGINEER"] });
     mockPrisma.schedule.findUnique.mockResolvedValue({
       id: "s1",
       userId: "user-2",
@@ -382,7 +383,7 @@ describe("DELETE /api/schedule", () => {
   });
 
   it("rejects non-admin deleting own non-self-assigned entry (403)", async () => {
-    mockSession({ id: "user-1", role: "ENGINEER" });
+    mockSession({ id: "user-1", roles: ["ENGINEER"] });
     mockPrisma.schedule.findUnique.mockResolvedValue({
       id: "s1",
       userId: "user-1",
@@ -396,7 +397,7 @@ describe("DELETE /api/schedule", () => {
   });
 
   it("returns 404 when entry not found (non-admin)", async () => {
-    mockSession({ id: "user-1", role: "ENGINEER" });
+    mockSession({ id: "user-1", roles: ["ENGINEER"] });
     mockPrisma.schedule.findUnique.mockResolvedValue(null);
 
     const req = new NextRequest("http://localhost/api/schedule?id=nonexistent", { method: "DELETE" });

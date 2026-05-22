@@ -15,13 +15,13 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     async session({ session, user }) {
       if (session.user) {
         session.user.id = user.id;
-        // Fetch role from database
+        // Fetch roles from database
         const dbUser = await prisma.user.findUnique({
           where: { id: user.id },
-          select: { role: true },
+          select: { roles: true },
         });
         if (dbUser) {
-          (session.user as unknown as Record<string, unknown>).role = dbUser.role;
+          (session.user as unknown as Record<string, unknown>).roles = dbUser.roles;
         }
       }
       return session;
