@@ -14,12 +14,13 @@ export default async function SchedulePage() {
   const session = await auth();
   const currentUserId = (session?.user as any)?.id as string;
 
-  // Fetch schedules for next 12 weeks
+  // Current Monday (start of this week)
   const now = new Date();
   const start = startOfWeek(now, { weekStartsOn: 1 });
   const end = addWeeks(start, 12);
 
-  const schedules = await prisma.schedule.findMany({
+  // Fetch upcoming schedules (this week + next 12 weeks)
+  const upcomingSchedules = await prisma.schedule.findMany({
     where: {
       weekStart: { gte: start, lte: end },
     },
@@ -27,6 +28,17 @@ export default async function SchedulePage() {
       user: { select: { id: true, name: true, fullName: true, email: true, image: true } },
     },
     orderBy: { weekStart: "asc" },
+  });
+
+  // Fetch all past schedules (weekEnd before this Monday)
+  const pastSchedulesRaw = await prisma.schedule.findMany({
+    where: {
+      weekEnd: { lt: start },
+    },
+    include: {
+      user: { select: { id: true, name: true, fullName: true, email: true, image: true } },
+    },
+    orderBy: { weekStart: "desc" },
   });
 
   const engineers = await prisma.user.findMany({
@@ -38,7 +50,17 @@ export default async function SchedulePage() {
   const canManage = hasAnyRole(session, ["ADMIN", "MANAGER"]);
 
   // Serialize dates as YYYY-MM-DD to avoid timezone issues on the client
-  const serializedSchedules = schedules.map((s) => ({
+  const serializedSchedules = upcomingSchedules.map((s) => ({
+    id: s.id,
+    weekStart: toDateString(s.weekStart),
+    weekEnd: toDateString(s.weekEnd),
+    isOverride: s.isOverride,
+    isSelfAssigned: s.isSelfAssigned,
+    notes: s.notes,
+    user: s.user,
+  }));
+
+  const serializedPastSchedules = pastSchedulesRaw.map((s) => ({
     id: s.id,
     weekStart: toDateString(s.weekStart),
     weekEnd: toDateString(s.weekEnd),
@@ -72,7 +94,7 @@ export default async function SchedulePage() {
         <div>
           <h1 className="text-3xl font-heading font-bold">Schedule</h1>
           <p className="text-muted-foreground">
-            Weekly on-call rotation for the next 12 weeks
+            On-call rotation schedule
           </p>
         </div>
         {canManage && <GenerateRotationForm engineers={engineers} />}
@@ -81,7 +103,6 @@ export default async function SchedulePage() {
       <ScheduleViewToggle
         calendarView={
           <ScheduleMonthCalendar
-            schedules={serializedSchedules}
             openWeeks={openWeeks}
             currentUserId={currentUserId}
           />
@@ -89,6 +110,7 @@ export default async function SchedulePage() {
         listView={
           <ScheduleCalendar
             schedules={serializedSchedules}
+            pastSchedules={serializedPastSchedules}
             engineers={engineers}
             isAdmin={canManage}
             openWeeks={openWeeks}

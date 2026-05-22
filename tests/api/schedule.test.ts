@@ -33,18 +33,19 @@ describe("GET /api/schedule", () => {
     expect(data).toHaveLength(1);
   });
 
-  it("filters by from/to date params", async () => {
+  it("filters by from/to date params (overlap-based)", async () => {
     mockSession();
     mockPrisma.schedule.findMany.mockResolvedValue([]);
 
     const req = new NextRequest("http://localhost/api/schedule?from=2026-06-01&to=2026-06-30");
     await GET(req);
 
+    // Overlap logic: weekStart <= to AND weekEnd >= from
     expect(mockPrisma.schedule.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({
-          weekStart: { gte: expect.any(Date) },
-          weekEnd: { lte: expect.any(Date) },
+          weekStart: { lte: expect.any(Date) },
+          weekEnd: { gte: expect.any(Date) },
         }),
       })
     );

@@ -18,10 +18,16 @@ export async function GET(request: NextRequest) {
   const from = searchParams.get("from");
   const to = searchParams.get("to");
 
+  // Overlap-based filtering: a schedule is included if its range overlaps the query range
+  // (weekStart <= to AND weekEnd >= from)
   const where: Record<string, unknown> = {};
-  if (from) where.weekStart = { gte: new Date(from) };
-  if (to) {
-    where.weekEnd = { ...(where.weekEnd as object || {}), lte: new Date(to) };
+  if (from && to) {
+    where.weekStart = { lte: new Date(to) };
+    where.weekEnd = { gte: new Date(from) };
+  } else if (from) {
+    where.weekEnd = { gte: new Date(from) };
+  } else if (to) {
+    where.weekStart = { lte: new Date(to) };
   }
 
   const schedules = await prisma.schedule.findMany({

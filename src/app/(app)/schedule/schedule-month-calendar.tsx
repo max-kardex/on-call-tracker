@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import {
   format,
   startOfMonth,
@@ -45,7 +45,6 @@ interface OpenWeek {
 }
 
 interface Props {
-  schedules: ScheduleEntry[];
   openWeeks: OpenWeek[];
   currentUserId: string;
 }
@@ -69,9 +68,13 @@ const ENGINEER_COLORS = [
   "bg-sky-100 text-sky-800 border-sky-200 dark:bg-sky-500/20 dark:text-sky-300 dark:border-sky-500/30",
 ];
 
-export function ScheduleMonthCalendar({ schedules, openWeeks, currentUserId }: Props) {
+export function ScheduleMonthCalendar({ openWeeks, currentUserId }: Props) {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [loadingWeek, setLoadingWeek] = useState<string | null>(null);
+  const [schedules, setSchedules] = useState<ScheduleEntry[]>([]);
+  const [fetching, setFetching] = useState(true);
+  const fetchGeneration = useRef(0);
+  const cache = useRef<Map<string, ScheduleEntry[]>>(new Map());
   const router = useRouter();
 
   // Set of open week start dates for quick lookup
@@ -79,6 +82,78 @@ export function ScheduleMonthCalendar({ schedules, openWeeks, currentUserId }: P
     () => new Set(openWeeks.map((ow) => ow.weekStart)),
     [openWeeks]
   );
+
+  // Calendar grid boundaries for the current month
+  const { calStart, calEnd, calendarDays } = useMemo(() => {
+    const monthStart = startOfMonth(currentMonth);
+    const monthEnd = endOfMonth(currentMonth);
+    const cs = startOfWeek(monthStart, { weekStartsOn: 1 });
+    const ce = endOfWeek(monthEnd, { weekStartsOn: 1 });
+    return {
+      calStart: cs,
+      calEnd: ce,
+      calendarDays: eachDayOfInterval({ start: cs, end: ce }),
+    };
+  }, [currentMonth]);
+
+  // Cache key for the current visible range
+  const cacheKey = useMemo(
+    () => `${format(calStart, "yyyy-MM-dd")}|${format(calEnd, "yyyy-MM-dd")}`,
+    [calStart, calEnd]
+  );
+
+  // Fetch schedules for the visible date range
+  const fetchSchedules = useCallback(async () => {
+    // Check cache first
+    if (cache.current.has(cacheKey)) {
+      setSchedules(cache.current.get(cacheKey)!);
+      setFetching(false);
+      return;
+    }
+
+    setFetching(true);
+    const gen = ++fetchGeneration.current;
+
+    try {
+      const from = format(calStart, "yyyy-MM-dd");
+      const to = format(calEnd, "yyyy-MM-dd");
+      const res = await fetch(`/api/schedule?from=${from}&to=${to}`);
+      if (!res.ok) throw new Error("Failed to fetch");
+
+      const data = await res.json();
+
+      // Only update if this is still the latest fetch
+      if (gen !== fetchGeneration.current) return;
+
+      // Normalize dates to YYYY-MM-DD strings
+      const entries: ScheduleEntry[] = data.map((s: any) => ({
+        id: s.id,
+        weekStart: s.weekStart?.split("T")[0] ?? s.weekStart,
+        weekEnd: s.weekEnd?.split("T")[0] ?? s.weekEnd,
+        isOverride: s.isOverride,
+        isSelfAssigned: s.isSelfAssigned,
+        notes: s.notes,
+        user: s.user,
+      }));
+
+      cache.current.set(cacheKey, entries);
+      setSchedules(entries);
+    } catch {
+      // On error, show empty state
+      if (gen === fetchGeneration.current) {
+        setSchedules([]);
+      }
+    } finally {
+      if (gen === fetchGeneration.current) {
+        setFetching(false);
+      }
+    }
+  }, [calStart, calEnd, cacheKey]);
+
+  // Fetch on mount and when month changes
+  useEffect(() => {
+    fetchSchedules();
+  }, [fetchSchedules]);
 
   // Build a color map for engineers based on order of appearance
   const engineerColorMap = useMemo(() => {
@@ -90,15 +165,6 @@ export function ScheduleMonthCalendar({ schedules, openWeeks, currentUserId }: P
     });
     return map;
   }, [schedules]);
-
-  // Get all days to display in the calendar grid
-  const calendarDays = useMemo(() => {
-    const monthStart = startOfMonth(currentMonth);
-    const monthEnd = endOfMonth(currentMonth);
-    const calStart = startOfWeek(monthStart, { weekStartsOn: 1 });
-    const calEnd = endOfWeek(monthEnd, { weekStartsOn: 1 });
-    return eachDayOfInterval({ start: calStart, end: calEnd });
-  }, [currentMonth]);
 
   // Find which schedule covers a given day
   function getScheduleForDay(day: Date): ScheduleEntry | undefined {
@@ -126,7 +192,10 @@ export function ScheduleMonthCalendar({ schedules, openWeeks, currentUserId }: P
         body: JSON.stringify({ action: "self-assign", weekStart }),
       });
       if (res.ok) {
+        // Invalidate cache so the new assignment shows
+        cache.current.delete(cacheKey);
         router.refresh();
+        await fetchSchedules();
       }
     } finally {
       setLoadingWeek(null);
@@ -180,73 +249,81 @@ export function ScheduleMonthCalendar({ schedules, openWeeks, currentUserId }: P
           ))}
         </div>
 
-        {/* Day cells */}
-        <div className="grid grid-cols-7 gap-px bg-border rounded-lg overflow-hidden">
-          {calendarDays.map((day) => {
-            const schedule = getScheduleForDay(day);
-            const inMonth = isSameMonth(day, currentMonth);
-            const isTodayCell = isToday(day);
-            const colorIdx = schedule
-              ? engineerColorMap.get(schedule.user.id) ?? 0
-              : 0;
-            const isOpenMonday = isOpenWeekMonday(day);
-            const dayStr = format(day, "yyyy-MM-dd");
-            const isFuture = dayStr >= todayStr;
+        {/* Day cells with loading overlay */}
+        <div className="relative">
+          {fetching && (
+            <div className="absolute inset-0 bg-background/60 z-10 flex items-center justify-center rounded-lg">
+              <Spinner className="h-6 w-6" />
+            </div>
+          )}
 
-            return (
-              <div
-                key={day.toISOString()}
-                className={cn(
-                  "min-h-[140px] p-2 bg-background flex flex-col",
-                  !inMonth && "opacity-40"
-                )}
-              >
-                {/* Day number */}
-                <span
+          <div className="grid grid-cols-7 gap-px bg-border rounded-lg overflow-hidden">
+            {calendarDays.map((day) => {
+              const schedule = getScheduleForDay(day);
+              const inMonth = isSameMonth(day, currentMonth);
+              const isTodayCell = isToday(day);
+              const colorIdx = schedule
+                ? engineerColorMap.get(schedule.user.id) ?? 0
+                : 0;
+              const isOpenMonday = isOpenWeekMonday(day);
+              const dayStr = format(day, "yyyy-MM-dd");
+              const isFuture = dayStr >= todayStr;
+
+              return (
+                <div
+                  key={day.toISOString()}
                   className={cn(
-                    "text-xs font-medium w-6 h-6 flex items-center justify-center rounded-full",
-                    isTodayCell && "bg-primary text-primary-foreground"
+                    "min-h-[140px] p-2 bg-background flex flex-col",
+                    !inMonth && "opacity-40"
                   )}
                 >
-                  {format(day, "d")}
-                </span>
-
-                {/* Schedule indicator */}
-                {schedule && (
-                  <div
+                  {/* Day number */}
+                  <span
                     className={cn(
-                      "mt-1 rounded border px-1.5 py-0.5 text-[10px] font-medium leading-tight truncate",
-                      ENGINEER_COLORS[colorIdx]
+                      "text-xs font-medium w-6 h-6 flex items-center justify-center rounded-full",
+                      isTodayCell && "bg-primary text-primary-foreground"
                     )}
-                    title={`${schedule.user.fullName ?? schedule.user.name ?? schedule.user.email}${schedule.isOverride ? " (override)" : ""}${schedule.isSelfAssigned ? " (volunteered)" : ""}`}
                   >
-                    {schedule.isSelfAssigned && (
-                      <Hand className="inline h-2.5 w-2.5 mr-0.5" />
-                    )}
-                    {(schedule.user.fullName ?? schedule.user.name)?.split(" ")[0] ?? schedule.user.email?.split("@")[0]}
-                    {schedule.isOverride && " *"}
-                  </div>
-                )}
+                    {format(day, "d")}
+                  </span>
 
-                {/* Self-assign button on Monday of open future weeks */}
-                {isOpenMonday && isFuture && !schedule && (
-                  <button
-                    onClick={() => handleSelfAssign(dayStr)}
-                    disabled={loadingWeek === dayStr}
-                    className="mt-1 flex items-center gap-0.5 rounded border border-dashed border-muted-foreground/40 px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground hover:border-primary hover:text-primary transition-colors disabled:opacity-50"
-                    title="Take this week"
-                  >
-                    {loadingWeek === dayStr ? (
-                      <Spinner className="h-2.5 w-2.5" />
-                    ) : (
-                      <Hand className="h-2.5 w-2.5" />
-                    )}
-                    Take
-                  </button>
-                )}
-              </div>
-            );
-          })}
+                  {/* Schedule indicator */}
+                  {schedule && (
+                    <div
+                      className={cn(
+                        "mt-1 rounded border px-1.5 py-0.5 text-[10px] font-medium leading-tight truncate",
+                        ENGINEER_COLORS[colorIdx]
+                      )}
+                      title={`${schedule.user.fullName ?? schedule.user.name ?? schedule.user.email}${schedule.isOverride ? " (override)" : ""}${schedule.isSelfAssigned ? " (volunteered)" : ""}`}
+                    >
+                      {schedule.isSelfAssigned && (
+                        <Hand className="inline h-2.5 w-2.5 mr-0.5" />
+                      )}
+                      {(schedule.user.fullName ?? schedule.user.name)?.split(" ")[0] ?? schedule.user.email?.split("@")[0]}
+                      {schedule.isOverride && " *"}
+                    </div>
+                  )}
+
+                  {/* Self-assign button on Monday of open future weeks */}
+                  {isOpenMonday && isFuture && !schedule && (
+                    <button
+                      onClick={() => handleSelfAssign(dayStr)}
+                      disabled={loadingWeek === dayStr}
+                      className="mt-1 flex items-center gap-0.5 rounded border border-dashed border-muted-foreground/40 px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground hover:border-primary hover:text-primary transition-colors disabled:opacity-50"
+                      title="Take this week"
+                    >
+                      {loadingWeek === dayStr ? (
+                        <Spinner className="h-2.5 w-2.5" />
+                      ) : (
+                        <Hand className="h-2.5 w-2.5" />
+                      )}
+                      Take
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
         </div>
 
         {/* Legend */}
