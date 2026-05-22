@@ -2,6 +2,7 @@ import { requireAuth } from "@/lib/auth-guard";
 import { Sidebar } from "@/components/nav/sidebar";
 import { MobileNav } from "@/components/nav/mobile-nav";
 import { UserNav } from "@/components/nav/user-nav";
+import { ThemeSwitcher } from "@/components/theme-switcher";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   // Protect all routes under (app) - redirects to /login if not authenticated
@@ -15,6 +16,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         <header className="sticky top-0 z-40 flex h-16 items-center gap-4 border-b bg-background px-6">
           <MobileNav />
           <div className="flex-1" />
+          <ThemeSwitcher />
           <UserNav />
         </header>
 
