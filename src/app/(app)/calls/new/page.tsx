@@ -1,6 +1,6 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { startOfWeek, endOfWeek } from "date-fns";
+import { subWeeks, addWeeks, startOfWeek, endOfWeek } from "date-fns";
 import { NewCallForm } from "./new-call-form";
 
 export const dynamic = "force-dynamic";
@@ -18,15 +18,16 @@ export default async function NewCallPage() {
     include: { user: true },
   });
 
-  // Get all active schedules for the dropdown
+  // Get all active schedules for the dropdown (past 8 weeks + next 2 weeks)
+  const rangeStart = startOfWeek(subWeeks(now, 8), { weekStartsOn: 1 });
+  const rangeEnd = endOfWeek(addWeeks(now, 2), { weekStartsOn: 1 });
   const recentSchedules = await prisma.schedule.findMany({
     where: {
-      weekStart: { lte: endOfWeek(now, { weekStartsOn: 1 }) },
-      weekEnd: { gte: startOfWeek(now, { weekStartsOn: 1 }) },
+      weekStart: { gte: rangeStart, lte: rangeEnd },
     },
     include: { user: { select: { id: true, name: true, fullName: true } } },
     orderBy: { weekStart: "desc" },
-    take: 10,
+    take: 20,
   });
 
   return (
