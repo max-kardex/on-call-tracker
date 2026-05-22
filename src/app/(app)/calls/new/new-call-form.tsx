@@ -16,6 +16,8 @@ import {
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
 import { format, parseISO } from "date-fns";
+import { X, PhoneCall } from "lucide-react";
+import { Spinner } from "@/components/ui/spinner";
 
 interface Props {
   currentScheduleId: string | null;
@@ -184,9 +186,11 @@ export function NewCallForm({ currentScheduleId, schedules }: Props) {
         </CardContent>
         <CardFooter className="flex justify-between">
           <Button type="button" variant="outline" onClick={() => router.back()}>
+            <X className="h-4 w-4" />
             Cancel
           </Button>
           <Button type="submit" disabled={loading}>
+            {loading ? <Spinner /> : <PhoneCall className="h-4 w-4" />}
             {loading ? "Saving..." : "Log Call"}
           </Button>
         </CardFooter>

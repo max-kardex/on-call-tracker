@@ -14,7 +14,8 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Plus } from "lucide-react";
+import { Plus, X, CalendarPlus } from "lucide-react";
+import { Spinner } from "@/components/ui/spinner";
 
 interface Engineer {
   id: string;
@@ -119,9 +120,11 @@ export function GenerateRotationForm({ engineers }: Props) {
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+              <X className="h-4 w-4" />
               Cancel
             </Button>
             <Button type="submit" disabled={loading}>
+              {loading ? <Spinner /> : <CalendarPlus className="h-4 w-4" />}
               {loading ? "Generating..." : "Generate Schedule"}
             </Button>
           </DialogFooter>

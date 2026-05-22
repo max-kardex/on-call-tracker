@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useSession, signOut } from "next-auth/react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
@@ -10,9 +11,11 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { LogOut, User } from "lucide-react";
+import { ProfileModal } from "@/components/profile-modal";
 
 export function UserNav() {
   const { data: session } = useSession();
+  const [profileOpen, setProfileOpen] = useState(false);
 
   if (!session?.user) return null;
 
@@ -23,38 +26,45 @@ export function UserNav() {
     .toUpperCase() ?? "U";
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger className="relative inline-flex items-center justify-center h-8 w-8 rounded-full hover:bg-accent">
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger className="relative inline-flex items-center justify-center h-8 w-8 rounded-full hover:bg-accent">
           <Avatar className="h-8 w-8">
             <AvatarImage src={session.user.image ?? undefined} alt={session.user.name ?? "User"} />
             <AvatarFallback>{initials}</AvatarFallback>
           </Avatar>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent className="w-56" align="end">
-        <div className="flex items-center justify-start gap-2 p-2">
-          <div className="flex flex-col space-y-1 leading-none">
-            {session.user.name && (
-              <p className="font-medium text-sm">{session.user.name}</p>
-            )}
-            {session.user.email && (
-              <p className="text-xs text-muted-foreground">{session.user.email}</p>
-            )}
+        </DropdownMenuTrigger>
+        <DropdownMenuContent className="w-56" align="end">
+          <div className="flex items-center justify-start gap-2 p-2">
+            <div className="flex flex-col space-y-1 leading-none">
+              {session.user.name && (
+                <p className="font-medium text-sm">{session.user.name}</p>
+              )}
+              {session.user.email && (
+                <p className="text-xs text-muted-foreground">{session.user.email}</p>
+              )}
+            </div>
           </div>
-        </div>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem className="flex items-center gap-2">
-          <User className="h-4 w-4" />
-          Profile
-        </DropdownMenuItem>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem
-          className="flex items-center gap-2 text-destructive"
-          onClick={() => signOut()}
-        >
-          <LogOut className="h-4 w-4" />
-          Sign out
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem
+            className="flex items-center gap-2"
+            onClick={() => setProfileOpen(true)}
+          >
+            <User className="h-4 w-4" />
+            Profile
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem
+            className="flex items-center gap-2 text-destructive"
+            onClick={() => signOut()}
+          >
+            <LogOut className="h-4 w-4" />
+            Sign out
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+
+      <ProfileModal open={profileOpen} onOpenChange={setProfileOpen} />
+    </>
   );
 }

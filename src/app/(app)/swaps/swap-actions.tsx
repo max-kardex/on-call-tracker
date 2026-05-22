@@ -3,6 +3,7 @@
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
+import { CheckCircle, XCircle, X } from "lucide-react";
 
 interface Props {
   swapId: string;
@@ -43,15 +44,18 @@ export function SwapActions({ swapId, isRequester, isTarget }: Props) {
       {isTarget && (
         <>
           <Button size="sm" onClick={() => handleAction("approve")}>
+            <CheckCircle className="h-4 w-4" />
             Approve
           </Button>
           <Button size="sm" variant="outline" onClick={() => handleAction("reject")}>
+            <XCircle className="h-4 w-4" />
             Reject
           </Button>
         </>
       )}
       {isRequester && (
         <Button size="sm" variant="ghost" onClick={() => handleAction("cancel")}>
+          <X className="h-4 w-4" />
           Cancel
         </Button>
       )}

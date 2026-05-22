@@ -15,6 +15,8 @@ import {
 } from "@/components/ui/select";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
+import { X, Send } from "lucide-react";
+import { Spinner } from "@/components/ui/spinner";
 
 interface Props {
   mySchedules: { id: string; weekStart: string; weekEnd: string }[];
@@ -159,12 +161,14 @@ export function NewSwapForm({ mySchedules, engineers }: Props) {
         </CardContent>
         <CardFooter className="flex justify-between">
           <Button type="button" variant="outline" onClick={() => router.back()}>
+            <X className="h-4 w-4" />
             Cancel
           </Button>
           <Button
             type="submit"
             disabled={loading || mySchedules.length === 0}
           >
+            {loading ? <Spinner /> : <Send className="h-4 w-4" />}
             {loading ? "Sending..." : "Send Swap Request"}
           </Button>
         </CardFooter>

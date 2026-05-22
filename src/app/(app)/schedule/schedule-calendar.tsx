@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import { Check, X, UserRoundPen, Trash2 } from "lucide-react";
 
 interface ScheduleEntry {
   id: string;
@@ -163,6 +164,7 @@ export function ScheduleCalendar({ schedules, engineers, isAdmin }: Props) {
                         </SelectContent>
                       </Select>
                       <Button size="sm" onClick={() => handleReassign(schedule.id)}>
+                        <Check className="h-4 w-4" />
                         Save
                       </Button>
                       <Button
@@ -170,6 +172,7 @@ export function ScheduleCalendar({ schedules, engineers, isAdmin }: Props) {
                         variant="ghost"
                         onClick={() => setEditingId(null)}
                       >
+                        <X className="h-4 w-4" />
                         Cancel
                       </Button>
                     </>
@@ -183,6 +186,7 @@ export function ScheduleCalendar({ schedules, engineers, isAdmin }: Props) {
                           setEditUserId(schedule.user.id);
                         }}
                       >
+                        <UserRoundPen className="h-4 w-4" />
                         Reassign
                       </Button>
                       <Button
@@ -191,6 +195,7 @@ export function ScheduleCalendar({ schedules, engineers, isAdmin }: Props) {
                         className="text-destructive"
                         onClick={() => handleDelete(schedule.id)}
                       >
+                        <Trash2 className="h-4 w-4" />
                         Delete
                       </Button>
                     </>

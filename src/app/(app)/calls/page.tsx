@@ -13,7 +13,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Plus } from "lucide-react";
+import { Plus, Eye, ChevronLeft, ChevronRight } from "lucide-react";
 import { CallFilters } from "./call-filters";
 
 export const dynamic = "force-dynamic";
@@ -135,6 +135,7 @@ export default async function CallsPage({
                     <TableCell>
                       <Link href={`/calls/${call.id}`}>
                         <Button variant="ghost" size="sm">
+                          <Eye className="h-4 w-4" />
                           View
                         </Button>
                       </Link>
@@ -152,7 +153,7 @@ export default async function CallsPage({
         <div className="flex items-center justify-center gap-2">
           {page > 1 && (
             <Link href={`/calls?page=${page - 1}${params.severity ? `&severity=${params.severity}` : ""}${params.userId ? `&userId=${params.userId}` : ""}`}>
-              <Button variant="outline" size="sm">Previous</Button>
+              <Button variant="outline" size="sm"><ChevronLeft className="h-4 w-4" />Previous</Button>
             </Link>
           )}
           <span className="text-sm text-muted-foreground">
@@ -160,7 +161,7 @@ export default async function CallsPage({
           </span>
           {page < totalPages && (
             <Link href={`/calls?page=${page + 1}${params.severity ? `&severity=${params.severity}` : ""}${params.userId ? `&userId=${params.userId}` : ""}`}>
-              <Button variant="outline" size="sm">Next</Button>
+              <Button variant="outline" size="sm">Next<ChevronRight className="h-4 w-4" /></Button>
             </Link>
           )}
         </div>

@@ -13,7 +13,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2, Save } from "lucide-react";
+import { Spinner } from "@/components/ui/spinner";
 
 interface Rule {
   id?: string;
@@ -175,6 +176,7 @@ export function CompensationRulesForm({ initialRules, isAdmin }: Props) {
       {isAdmin && (
         <CardFooter>
           <Button onClick={handleSave} disabled={loading}>
+            {loading ? <Spinner /> : <Save className="h-4 w-4" />}
             {loading ? "Saving..." : "Save Rules"}
           </Button>
         </CardFooter>

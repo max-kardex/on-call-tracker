@@ -13,6 +13,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { toast } from "sonner";
+import { ShieldCheck, UserCog, UserCheck, UserX } from "lucide-react";
 
 interface User {
   id: string;
@@ -118,6 +119,7 @@ export function TeamManagement({ users, isAdmin }: Props) {
                           variant="outline"
                           onClick={() => toggleRole(user.id, user.role)}
                         >
+                          {user.role === "ADMIN" ? <UserCog className="h-4 w-4" /> : <ShieldCheck className="h-4 w-4" />}
                           {user.role === "ADMIN" ? "Make Engineer" : "Make Admin"}
                         </Button>
                         <Button
@@ -125,6 +127,7 @@ export function TeamManagement({ users, isAdmin }: Props) {
                           variant={user.isActive ? "ghost" : "outline"}
                           onClick={() => toggleActive(user.id, user.isActive)}
                         >
+                          {user.isActive ? <UserX className="h-4 w-4" /> : <UserCheck className="h-4 w-4" />}
                           {user.isActive ? "Deactivate" : "Activate"}
                         </Button>
                       </div>
