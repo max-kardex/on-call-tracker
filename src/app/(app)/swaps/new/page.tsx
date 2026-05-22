@@ -26,7 +26,7 @@ export default async function NewSwapPage() {
       isActive: true,
       id: { not: session?.user?.id },
     },
-    select: { id: true, name: true, email: true },
+    select: { id: true, name: true, fullName: true, email: true },
     orderBy: { name: "asc" },
   });
 

@@ -19,6 +19,7 @@ import { Spinner } from "@/components/ui/spinner";
 
 interface Engineer {
   id: string;
+  fullName: string | null;
   name: string | null;
   email: string | null;
   image: string | null;
@@ -109,7 +110,7 @@ export function GenerateRotationForm({ engineers }: Props) {
             </p>
             <ul className="mt-2 text-sm space-y-1">
               {engineers.slice(0, 5).map((eng) => (
-                <li key={eng.id}>{eng.name ?? eng.email}</li>
+                <li key={eng.id}>{eng.fullName ?? eng.name ?? eng.email}</li>
               ))}
               {engineers.length > 5 && (
                 <li className="text-muted-foreground">

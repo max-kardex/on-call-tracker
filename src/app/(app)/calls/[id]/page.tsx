@@ -20,7 +20,7 @@ export default async function CallDetailPage({
   const call = await prisma.callLog.findUnique({
     where: { id },
     include: {
-      user: { select: { id: true, name: true, email: true, image: true } },
+      user: { select: { id: true, name: true, fullName: true, email: true, image: true } },
       schedule: { select: { id: true, weekStart: true, weekEnd: true } },
     },
   });
@@ -84,7 +84,7 @@ export default async function CallDetailPage({
               <User className="h-4 w-4" />
               Handled By
             </div>
-            <p className="font-medium">{call.user.name ?? call.user.email}</p>
+            <p className="font-medium">{call.user.fullName ?? call.user.name ?? call.user.email}</p>
           </CardContent>
         </Card>
 

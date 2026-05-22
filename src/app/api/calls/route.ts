@@ -33,7 +33,7 @@ export async function GET(request: NextRequest) {
     prisma.callLog.findMany({
       where,
       include: {
-        user: { select: { id: true, name: true, email: true, image: true } },
+        user: { select: { id: true, name: true, fullName: true, email: true, image: true } },
         schedule: { select: { id: true, weekStart: true } },
       },
       orderBy: { startTime: "desc" },
@@ -87,14 +87,14 @@ export async function POST(request: NextRequest) {
       resolution: resolution || null,
     },
     include: {
-      user: { select: { id: true, name: true, email: true } },
+      user: { select: { id: true, name: true, fullName: true, email: true } },
     },
   });
 
   // Notify on high severity
   if (severity === "P1" || severity === "P2") {
     await notifyHighSeverityCall(
-      call.user.name ?? "Unknown",
+      call.user.fullName || call.user.name || "Unknown",
       severity,
       title
     );

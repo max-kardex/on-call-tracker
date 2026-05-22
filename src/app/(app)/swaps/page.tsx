@@ -15,8 +15,8 @@ export default async function SwapsPage() {
 
   const swaps = await prisma.swapRequest.findMany({
     include: {
-      requester: { select: { id: true, name: true, email: true, image: true } },
-      target: { select: { id: true, name: true, email: true, image: true } },
+      requester: { select: { id: true, name: true, fullName: true, email: true, image: true } },
+      target: { select: { id: true, name: true, fullName: true, email: true, image: true } },
     },
     orderBy: { createdAt: "desc" },
   });
@@ -67,11 +67,11 @@ export default async function SwapsPage() {
                 <div className="flex-1 space-y-1">
                   <div className="flex items-center gap-2">
                     <p className="font-medium">
-                      {swap.requester.name ?? swap.requester.email}
+                      {swap.requester.fullName ?? swap.requester.name ?? swap.requester.email}
                     </p>
                     <span className="text-muted-foreground">wants to swap with</span>
                     <p className="font-medium">
-                      {swap.target.name ?? swap.target.email}
+                      {swap.target.fullName ?? swap.target.name ?? swap.target.email}
                     </p>
                   </div>
                   <p className="text-sm text-muted-foreground">

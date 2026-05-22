@@ -18,6 +18,7 @@ import { ShieldCheck, UserCog, UserCheck, UserX } from "lucide-react";
 interface User {
   id: string;
   name: string | null;
+  fullName: string | null;
   email: string | null;
   role: string;
   isActive: boolean;
@@ -88,7 +89,8 @@ export function TeamManagement({ users, isAdmin }: Props) {
           </TableHeader>
           <TableBody>
             {users.map((user) => {
-              const initials = user.name?.split(" ").map((n) => n[0]).join("") ?? "?";
+              const displayName = user.fullName ?? user.name ?? "Unknown";
+              const initials = displayName.split(" ").map((n) => n[0]).join("") || "?";
               return (
                 <TableRow key={user.id}>
                   <TableCell>
@@ -97,7 +99,7 @@ export function TeamManagement({ users, isAdmin }: Props) {
                         <AvatarImage src={user.image ?? undefined} />
                         <AvatarFallback className="text-xs">{initials}</AvatarFallback>
                       </Avatar>
-                      <span className="font-medium">{user.name ?? "Unknown"}</span>
+                      <span className="font-medium">{displayName}</span>
                     </div>
                   </TableCell>
                   <TableCell className="text-muted-foreground">{user.email}</TableCell>

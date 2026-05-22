@@ -74,7 +74,7 @@ export default async function DashboardPage() {
       <div>
         <h1 className="text-3xl font-heading font-bold">Dashboard</h1>
         <p className="text-muted-foreground">
-          Welcome back, {session?.user?.name ?? "Engineer"}. Here&apos;s your on-call overview.
+          Welcome back, {(session?.user as any)?.fullName ?? session?.user?.name ?? "Engineer"}. Here&apos;s your on-call overview.
         </p>
       </div>
 
@@ -87,7 +87,7 @@ export default async function DashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {currentSchedule?.user.name ?? "Unassigned"}
+              {currentSchedule?.user.fullName ?? currentSchedule?.user.name ?? "Unassigned"}
             </div>
             <p className="text-xs text-muted-foreground">
               Week of {format(weekStart, "MMM d")} - {format(weekEnd, "MMM d")}
@@ -128,7 +128,7 @@ export default async function DashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {upcomingSchedules[0]?.user.name ?? "TBD"}
+              {upcomingSchedules[0]?.user.fullName ?? upcomingSchedules[0]?.user.name ?? "TBD"}
             </div>
             <p className="text-xs text-muted-foreground">
               {upcomingSchedules[0]
@@ -157,7 +157,7 @@ export default async function DashboardPage() {
                     <div className="space-y-1">
                       <p className="text-sm font-medium leading-none">{call.title}</p>
                       <p className="text-xs text-muted-foreground">
-                        {call.user.name} &middot; {format(call.startTime, "MMM d, h:mm a")}
+                        {call.user.fullName ?? call.user.name} &middot; {format(call.startTime, "MMM d, h:mm a")}
                       </p>
                     </div>
                     <Badge
@@ -202,7 +202,7 @@ export default async function DashboardPage() {
                   <div key={schedule.id} className="flex items-center justify-between">
                     <div className="space-y-1">
                       <p className="text-sm font-medium leading-none">
-                        {schedule.user.name}
+                        {schedule.user.fullName ?? schedule.user.name}
                       </p>
                       <p className="text-xs text-muted-foreground">
                         {format(schedule.weekStart, "MMM d")} - {format(schedule.weekEnd, "MMM d")}
@@ -238,7 +238,7 @@ export default async function DashboardPage() {
                 <div key={swap.id} className="flex items-center justify-between">
                   <div className="space-y-1">
                     <p className="text-sm font-medium leading-none">
-                      {swap.requester.name} wants to swap with {swap.target.name}
+                      {swap.requester.fullName ?? swap.requester.name} wants to swap with {swap.target.fullName ?? swap.target.name}
                     </p>
                     <p className="text-xs text-muted-foreground">
                       Week of {format(swap.originalWeekStart, "MMM d, yyyy")}

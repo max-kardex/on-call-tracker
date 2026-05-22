@@ -20,7 +20,7 @@ import { Spinner } from "@/components/ui/spinner";
 
 interface Props {
   mySchedules: { id: string; weekStart: string; weekEnd: string }[];
-  engineers: { id: string; name: string | null; email: string | null }[];
+  engineers: { id: string; fullName: string | null; name: string | null; email: string | null }[];
 }
 
 export function NewSwapForm({ mySchedules, engineers }: Props) {
@@ -139,7 +139,7 @@ export function NewSwapForm({ mySchedules, engineers }: Props) {
                   <SelectContent>
                     {engineers.map((eng) => (
                       <SelectItem key={eng.id} value={eng.id}>
-                        {eng.name ?? eng.email}
+                        {eng.fullName ?? eng.name ?? eng.email}
                       </SelectItem>
                     ))}
                   </SelectContent>

@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { X } from "lucide-react";
 
 interface Props {
-  engineers: { id: string; name: string | null }[];
+  engineers: { id: string; fullName: string | null; name: string | null }[];
 }
 
 export function CallFilters({ engineers }: Props) {
@@ -67,7 +67,7 @@ export function CallFilters({ engineers }: Props) {
           <SelectItem value="all">All Engineers</SelectItem>
           {engineers.map((eng) => (
             <SelectItem key={eng.id} value={eng.id}>
-              {eng.name ?? "Unknown"}
+              {eng.fullName ?? eng.name ?? "Unknown"}
             </SelectItem>
           ))}
         </SelectContent>

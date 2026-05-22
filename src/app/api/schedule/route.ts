@@ -25,7 +25,7 @@ export async function GET(request: NextRequest) {
 
   const schedules = await prisma.schedule.findMany({
     where,
-    include: { user: { select: { id: true, name: true, email: true, image: true } } },
+    include: { user: { select: { id: true, name: true, fullName: true, email: true, image: true } } },
     orderBy: { weekStart: "asc" },
   });
 
@@ -96,11 +96,11 @@ async function handleSelfAssign(
       isSelfAssigned: true,
       notes,
     },
-    include: { user: { select: { id: true, name: true, email: true, image: true } } },
+    include: { user: { select: { id: true, name: true, fullName: true, email: true, image: true } } },
   });
 
   // Send Slack notification
-  const engineerName = schedule.user.name ?? schedule.user.email ?? "Someone";
+  const engineerName = schedule.user.fullName || schedule.user.name || schedule.user.email || "Someone";
   const weekLabel = weekStartDate.toISOString().split("T")[0];
   try {
     await notifyVolunteer(engineerName, weekLabel);
@@ -226,7 +226,7 @@ async function handleGenerateRotation(body: {
         },
         update: {},
         create: schedule,
-        include: { user: { select: { id: true, name: true, email: true } } },
+        include: { user: { select: { id: true, name: true, fullName: true, email: true } } },
       });
       created.push(result);
     } catch {
@@ -256,7 +256,7 @@ async function handleCreateEntry(body: {
       isSelfAssigned: false,
       notes,
     },
-    include: { user: { select: { id: true, name: true, email: true } } },
+    include: { user: { select: { id: true, name: true, fullName: true, email: true } } },
   });
 
   return NextResponse.json(schedule);
@@ -280,7 +280,7 @@ export async function PUT(request: NextRequest) {
       isOverride: true,
       isSelfAssigned: false, // Admin override clears self-assigned status
     },
-    include: { user: { select: { id: true, name: true, email: true } } },
+    include: { user: { select: { id: true, name: true, fullName: true, email: true } } },
   });
 
   return NextResponse.json(schedule);

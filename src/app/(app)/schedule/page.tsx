@@ -23,14 +23,14 @@ export default async function SchedulePage() {
       weekStart: { gte: start, lte: end },
     },
     include: {
-      user: { select: { id: true, name: true, email: true, image: true } },
+      user: { select: { id: true, name: true, fullName: true, email: true, image: true } },
     },
     orderBy: { weekStart: "asc" },
   });
 
   const engineers = await prisma.user.findMany({
     where: { isActive: true },
-    select: { id: true, name: true, email: true, image: true },
+    select: { id: true, name: true, fullName: true, email: true, image: true },
     orderBy: { name: "asc" },
   });
 

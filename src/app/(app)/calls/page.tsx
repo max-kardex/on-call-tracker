@@ -36,7 +36,7 @@ export default async function CallsPage({
     prisma.callLog.findMany({
       where,
       include: {
-        user: { select: { id: true, name: true, email: true, image: true } },
+        user: { select: { id: true, name: true, fullName: true, email: true, image: true } },
         schedule: { select: { weekStart: true } },
       },
       orderBy: { startTime: "desc" },
@@ -46,7 +46,7 @@ export default async function CallsPage({
     prisma.callLog.count({ where }),
     prisma.user.findMany({
       where: { isActive: true },
-      select: { id: true, name: true },
+      select: { id: true, name: true, fullName: true },
       orderBy: { name: "asc" },
     }),
   ]);
@@ -125,7 +125,7 @@ export default async function CallsPage({
                         {call.severity}
                       </Badge>
                     </TableCell>
-                    <TableCell>{call.user.name ?? call.user.email}</TableCell>
+                    <TableCell>{call.user.fullName ?? call.user.name ?? call.user.email}</TableCell>
                     <TableCell>
                       {format(call.startTime, "MMM d, yyyy h:mm a")}
                     </TableCell>

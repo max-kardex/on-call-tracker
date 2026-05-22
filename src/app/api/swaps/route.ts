@@ -25,8 +25,8 @@ export async function GET(request: NextRequest) {
   const swaps = await prisma.swapRequest.findMany({
     where,
     include: {
-      requester: { select: { id: true, name: true, email: true, image: true } },
-      target: { select: { id: true, name: true, email: true, image: true } },
+      requester: { select: { id: true, name: true, fullName: true, email: true, image: true } },
+      target: { select: { id: true, name: true, fullName: true, email: true, image: true } },
     },
     orderBy: { createdAt: "desc" },
   });
@@ -68,15 +68,15 @@ export async function POST(request: NextRequest) {
       reason: reason || null,
     },
     include: {
-      requester: { select: { id: true, name: true, email: true } },
-      target: { select: { id: true, name: true, email: true } },
+      requester: { select: { id: true, name: true, fullName: true, email: true } },
+      target: { select: { id: true, name: true, fullName: true, email: true } },
     },
   });
 
   // Send Slack notification
   await notifySwapRequest(
-    swap.requester.name ?? "Unknown",
-    swap.target.name ?? "Unknown",
+    swap.requester.fullName || swap.requester.name || "Unknown",
+    swap.target.fullName || swap.target.name || "Unknown",
     new Date(originalWeekStart).toLocaleDateString()
   );
 

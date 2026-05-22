@@ -12,7 +12,7 @@ export async function GET() {
   }
 
   const users = await prisma.user.findMany({
-    select: { id: true, name: true, email: true, image: true, role: true, isActive: true },
+    select: { id: true, name: true, fullName: true, email: true, image: true, role: true, isActive: true },
     orderBy: { name: "asc" },
   });
 
@@ -50,7 +50,7 @@ export async function PUT(request: NextRequest) {
   const user = await prisma.user.update({
     where: { id },
     data: updateData,
-    select: { id: true, name: true, email: true, role: true, isActive: true },
+    select: { id: true, name: true, fullName: true, email: true, role: true, isActive: true },
   });
 
   return NextResponse.json(user);

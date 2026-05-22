@@ -28,6 +28,7 @@ interface ScheduleEntry {
   notes: string | null;
   user: {
     id: string;
+    fullName: string | null;
     name: string | null;
     email: string | null;
     image: string | null;
@@ -36,6 +37,7 @@ interface ScheduleEntry {
 
 interface Engineer {
   id: string;
+  fullName: string | null;
   name: string | null;
   email: string | null;
   image: string | null;
@@ -240,7 +242,7 @@ export function ScheduleCalendar({ schedules, engineers, isAdmin, openWeeks, cur
         // Assigned week
         const schedule = item.schedule!;
         const isEditing = editingId === schedule.id;
-        const initials = schedule.user.name
+        const initials = (schedule.user.fullName ?? schedule.user.name)
           ?.split(" ")
           .map((n) => n[0])
           .join("") ?? "?";
@@ -270,7 +272,7 @@ export function ScheduleCalendar({ schedules, engineers, isAdmin, openWeeks, cur
                   <AvatarFallback className="text-xs">{initials}</AvatarFallback>
                 </Avatar>
                 <div>
-                  <p className="text-sm font-medium">{schedule.user.name ?? schedule.user.email}</p>
+                  <p className="text-sm font-medium">{schedule.user.fullName ?? schedule.user.name ?? schedule.user.email}</p>
                   {schedule.notes && (
                     <p className="text-xs text-muted-foreground">{schedule.notes}</p>
                   )}
@@ -322,7 +324,7 @@ export function ScheduleCalendar({ schedules, engineers, isAdmin, openWeeks, cur
                           <SelectContent>
                             {engineers.map((eng) => (
                               <SelectItem key={eng.id} value={eng.id}>
-                                {eng.name ?? eng.email}
+                                {eng.fullName ?? eng.name ?? eng.email}
                               </SelectItem>
                             ))}
                           </SelectContent>

@@ -40,7 +40,7 @@ export async function GET(request: NextRequest) {
 
   const records = await prisma.ptoCompensation.findMany({
     where,
-    include: { user: { select: { id: true, name: true, email: true } } },
+    include: { user: { select: { id: true, name: true, fullName: true, email: true } } },
     orderBy: { periodStart: "desc" },
   });
 
@@ -66,7 +66,7 @@ async function handleCalculate(periodStart: string | null, periodEnd: string | n
       weekStart: { gte: start, lte: end },
     },
     include: {
-      user: { select: { id: true, name: true, email: true } },
+      user: { select: { id: true, name: true, fullName: true, email: true } },
       callLogs: true,
     },
   });
@@ -88,7 +88,7 @@ async function handleCalculate(periodStart: string | null, periodEnd: string | n
     if (!compensationByUser[userId]) {
       compensationByUser[userId] = {
         userId,
-        userName: schedule.user.name ?? "Unknown",
+        userName: schedule.user.fullName || schedule.user.name || "Unknown",
         weeksOnCall: 0,
         totalCalls: 0,
         callsBySeverity: { P1: 0, P2: 0, P3: 0, P4: 0 },
@@ -131,7 +131,7 @@ async function handleExport(periodStart: string | null, periodEnd: string | null
       periodStart: { gte: start },
       periodEnd: { lte: end },
     },
-    include: { user: { select: { name: true, email: true } } },
+    include: { user: { select: { name: true, fullName: true, email: true } } },
     orderBy: [{ user: { name: "asc" } }, { periodStart: "asc" }],
   });
 
@@ -139,7 +139,7 @@ async function handleExport(periodStart: string | null, periodEnd: string | null
   const headers = "Name,Email,Period Start,Period End,Hours Earned,Reason,Approved";
   const rows = records.map((r) =>
     [
-      r.user.name ?? "",
+      r.user.fullName || r.user.name || "",
       r.user.email ?? "",
       format(r.periodStart, "yyyy-MM-dd"),
       format(r.periodEnd, "yyyy-MM-dd"),

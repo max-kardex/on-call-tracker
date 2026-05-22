@@ -15,7 +15,7 @@ export default async function SettingsPage() {
     prisma.compensationRule.findMany({ orderBy: { ruleType: "asc" } }),
     prisma.slackConfig.findFirst({ where: { isActive: true } }),
     prisma.user.findMany({
-      select: { id: true, name: true, email: true, role: true, isActive: true, image: true },
+      select: { id: true, name: true, fullName: true, email: true, role: true, isActive: true, image: true },
       orderBy: { name: "asc" },
     }),
   ]);

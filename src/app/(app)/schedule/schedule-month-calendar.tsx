@@ -32,6 +32,7 @@ interface ScheduleEntry {
   notes: string | null;
   user: {
     id: string;
+    fullName: string | null;
     name: string | null;
     email: string | null;
     image: string | null;
@@ -217,12 +218,12 @@ export function ScheduleMonthCalendar({ schedules, openWeeks, currentUserId }: P
                       "mt-1 rounded border px-1.5 py-0.5 text-[10px] font-medium leading-tight truncate",
                       ENGINEER_COLORS[colorIdx]
                     )}
-                    title={`${schedule.user.name ?? schedule.user.email}${schedule.isOverride ? " (override)" : ""}${schedule.isSelfAssigned ? " (volunteered)" : ""}`}
+                    title={`${schedule.user.fullName ?? schedule.user.name ?? schedule.user.email}${schedule.isOverride ? " (override)" : ""}${schedule.isSelfAssigned ? " (volunteered)" : ""}`}
                   >
                     {schedule.isSelfAssigned && (
                       <Hand className="inline h-2.5 w-2.5 mr-0.5" />
                     )}
-                    {schedule.user.name?.split(" ")[0] ?? schedule.user.email?.split("@")[0]}
+                    {(schedule.user.fullName ?? schedule.user.name)?.split(" ")[0] ?? schedule.user.email?.split("@")[0]}
                     {schedule.isOverride && " *"}
                   </div>
                 )}
@@ -262,7 +263,7 @@ export function ScheduleMonthCalendar({ schedules, openWeeks, currentUserId }: P
                     ENGINEER_COLORS[colorIdx]
                   )}
                 >
-                  {engineer.name ?? engineer.email}
+                  {engineer.fullName ?? engineer.name ?? engineer.email}
                 </div>
               );
             })}

@@ -24,7 +24,7 @@ export default async function NewCallPage() {
       weekStart: { lte: endOfWeek(now, { weekStartsOn: 1 }) },
       weekEnd: { gte: startOfWeek(now, { weekStartsOn: 1 }) },
     },
-    include: { user: { select: { id: true, name: true } } },
+    include: { user: { select: { id: true, name: true, fullName: true } } },
     orderBy: { weekStart: "desc" },
     take: 10,
   });
@@ -43,7 +43,7 @@ export default async function NewCallPage() {
         schedules={recentSchedules.map((s) => ({
           id: s.id,
           weekStart: s.weekStart.toISOString(),
-          userName: s.user.name ?? "Unknown",
+          userName: s.user.fullName || s.user.name || "Unknown",
         }))}
       />
     </div>
