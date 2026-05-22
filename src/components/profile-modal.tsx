@@ -21,7 +21,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { MessageSquare, Phone, MessageCircle, Monitor } from "lucide-react";
+import { MessageSquare, Phone, MessageCircle, Monitor, Save } from "lucide-react";
 import { Spinner } from "@/components/ui/spinner";
 
 interface Props {
@@ -37,8 +37,8 @@ const CONTACT_METHODS = [
 ] as const;
 
 export function ProfileModal({ open, onOpenChange }: Props) {
-  const { data: session, update: updateSession } = useSession();
-  const [name, setName] = useState(session?.user?.name ?? "");
+  const { data: session } = useSession();
+  const [fullName, setFullName] = useState("");
   const [preferredContact, setPreferredContact] = useState("SLACK");
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -50,7 +50,7 @@ export function ProfileModal({ open, onOpenChange }: Props) {
       fetch("/api/profile")
         .then((res) => res.json())
         .then((data) => {
-          if (data.name) setName(data.name);
+          if (data.fullName) setFullName(data.fullName);
           if (data.preferredContact) setPreferredContact(data.preferredContact);
         })
         .catch(() => {})
@@ -59,8 +59,8 @@ export function ProfileModal({ open, onOpenChange }: Props) {
   }, [open]);
 
   async function handleSave() {
-    if (!name.trim()) {
-      toast.error("Name cannot be empty");
+    if (!fullName.trim()) {
+      toast.error("Full name cannot be empty");
       return;
     }
 
@@ -70,14 +70,13 @@ export function ProfileModal({ open, onOpenChange }: Props) {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          name: name.trim(),
+          fullName: fullName.trim(),
           preferredContact,
         }),
       });
 
       if (res.ok) {
         toast.success("Profile updated");
-        await updateSession({ name: name.trim() });
         onOpenChange(false);
       } else {
         const data = await res.json();
@@ -96,7 +95,7 @@ export function ProfileModal({ open, onOpenChange }: Props) {
         <DialogHeader>
           <DialogTitle>Edit Profile</DialogTitle>
           <DialogDescription>
-            Update your display name and contact preferences. Email and GitHub username are managed through your GitHub account.
+            Update your display name and contact preferences. Username and email are managed through your GitHub account.
           </DialogDescription>
         </DialogHeader>
 
@@ -107,14 +106,14 @@ export function ProfileModal({ open, onOpenChange }: Props) {
           </div>
         ) : (
           <div className="space-y-4 py-2">
-            {/* Editable: Name */}
+            {/* Editable: Full Name */}
             <div className="space-y-2">
-              <Label htmlFor="profile-name">Display Name</Label>
+              <Label htmlFor="profile-fullname">Full Name</Label>
               <Input
-                id="profile-name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="Your display name"
+                id="profile-fullname"
+                value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
+                placeholder="e.g. John Smith"
               />
             </div>
 
@@ -126,7 +125,19 @@ export function ProfileModal({ open, onOpenChange }: Props) {
                 onValueChange={(v) => setPreferredContact(v ?? "SLACK")}
               >
                 <SelectTrigger id="profile-contact">
-                  <SelectValue placeholder="Select contact method" />
+                  <SelectValue placeholder="Select contact method">
+                    {(() => {
+                      const selected = CONTACT_METHODS.find((m) => m.value === preferredContact);
+                      if (!selected) return "Select contact method";
+                      const Icon = selected.icon;
+                      return (
+                        <span className="flex items-center gap-2">
+                          <Icon className="h-4 w-4" />
+                          {selected.label}
+                        </span>
+                      );
+                    })()}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {CONTACT_METHODS.map((method) => (
@@ -141,6 +152,19 @@ export function ProfileModal({ open, onOpenChange }: Props) {
               </Select>
               <p className="text-xs text-muted-foreground">
                 How you prefer to be reached when on-call
+              </p>
+            </div>
+
+            {/* Read-only: Username (from GitHub) */}
+            <div className="space-y-2">
+              <Label className="text-muted-foreground">Username</Label>
+              <Input
+                value={session?.user?.name ?? ""}
+                disabled
+                className="opacity-60"
+              />
+              <p className="text-xs text-muted-foreground">
+                From your GitHub account
               </p>
             </div>
 
@@ -168,7 +192,7 @@ export function ProfileModal({ open, onOpenChange }: Props) {
             Cancel
           </Button>
           <Button onClick={handleSave} disabled={saving || loading}>
-            {saving && <Spinner />}
+            {saving ? <Spinner /> : <Save className="h-4 w-4" />}
             {saving ? "Saving..." : "Save changes"}
           </Button>
         </DialogFooter>

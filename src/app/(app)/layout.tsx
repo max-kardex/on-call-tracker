@@ -1,4 +1,6 @@
+import { redirect } from "next/navigation";
 import { requireAuth } from "@/lib/auth-guard";
+import { prisma } from "@/lib/prisma";
 import { Sidebar } from "@/components/nav/sidebar";
 import { MobileNav } from "@/components/nav/mobile-nav";
 import { UserNav } from "@/components/nav/user-nav";
@@ -6,7 +8,19 @@ import { ThemeSwitcher } from "@/components/theme-switcher";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   // Protect all routes under (app) - redirects to /login if not authenticated
-  await requireAuth();
+  const session = await requireAuth();
+
+  // Redirect to onboarding if user hasn't completed it
+  if (session?.user?.id) {
+    const user = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { onboarded: true },
+    });
+
+    if (user && !user.onboarded) {
+      redirect("/onboarding");
+    }
+  }
 
   return (
     <div className="h-full">

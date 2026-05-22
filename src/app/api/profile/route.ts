@@ -18,10 +18,12 @@ export async function GET() {
     select: {
       id: true,
       name: true,
+      fullName: true,
       email: true,
       image: true,
       role: true,
       preferredContact: true,
+      onboarded: true,
       createdAt: true,
     },
   });
@@ -41,18 +43,21 @@ export async function PUT(request: NextRequest) {
   }
 
   const body = await request.json();
-  const { name, image, preferredContact } = body;
+  const { fullName, image, preferredContact, onboarded } = body;
 
-  // Only allow updating name, image, and preferredContact (not email or role)
-  const updateData: Record<string, string> = {};
-  if (typeof name === "string" && name.trim()) {
-    updateData.name = name.trim();
+  const updateData: Record<string, unknown> = {};
+
+  if (typeof fullName === "string" && fullName.trim()) {
+    updateData.fullName = fullName.trim();
   }
   if (typeof image === "string") {
     updateData.image = image;
   }
   if (typeof preferredContact === "string" && VALID_CONTACT_METHODS.includes(preferredContact as any)) {
     updateData.preferredContact = preferredContact;
+  }
+  if (typeof onboarded === "boolean") {
+    updateData.onboarded = onboarded;
   }
 
   if (Object.keys(updateData).length === 0) {
@@ -65,10 +70,12 @@ export async function PUT(request: NextRequest) {
     select: {
       id: true,
       name: true,
+      fullName: true,
       email: true,
       image: true,
       role: true,
       preferredContact: true,
+      onboarded: true,
     },
   });
 
