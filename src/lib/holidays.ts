@@ -75,9 +75,12 @@ export function getAllHolidays(
 }
 
 /**
- * Calculates PTO hours for a single call using the new formula:
- *   call_base = (duration <= 60 min) ? 1 : 2
- *   time_mult = (weekend or holiday) ? 2 : 1
+ * Calculates PTO hours for a single call.
+ *
+ * Formula:
+ *   call_base = ceil(duration_minutes / 60)  — 1 PTO hour per started hour
+ *   time_mult = holiday ? holidayMult : weekend ? weekendMult : 1
+ *               (holiday takes precedence over weekend, no stacking)
  *   sev_mult  = configured per severity (default 1)
  *   call_pto  = call_base * time_mult * sev_mult
  */
@@ -86,14 +89,27 @@ export function calculateCallPto(
   startTime: Date,
   severity: string,
   severityMultipliers: Record<string, number>,
-  holidays: HolidayEntry[]
-): { pto: number; callBase: number; timeMult: number; sevMult: number } {
-  const callBase = durationMinutes > 60 ? 2 : 1;
-  const timeMult = isWeekendOrHoliday(startTime, holidays) ? 2 : 1;
+  holidays: HolidayEntry[],
+  weekendMult: number = 2,
+  holidayMult: number = 2
+): { pto: number; callBase: number; timeMult: number; sevMult: number; dayType: "weekday" | "weekend" | "holiday" } {
+  const callBase = Math.ceil(durationMinutes / 60);
+
+  // Holiday takes precedence over weekend
+  let timeMult = 1;
+  let dayType: "weekday" | "weekend" | "holiday" = "weekday";
+  if (isHolidayDate(startTime, holidays)) {
+    timeMult = holidayMult;
+    dayType = "holiday";
+  } else if (isWeekendDay(startTime)) {
+    timeMult = weekendMult;
+    dayType = "weekend";
+  }
+
   const sevMult = severityMultipliers[severity] ?? 1;
   const pto = callBase * timeMult * sevMult;
 
-  return { pto, callBase, timeMult, sevMult };
+  return { pto, callBase, timeMult, sevMult, dayType };
 }
 
 // ─── Helper functions for date computation ───────────────────────────────────

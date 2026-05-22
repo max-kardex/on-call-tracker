@@ -111,6 +111,24 @@ async function main() {
     }),
     prisma.compensationRule.create({
       data: {
+        name: "Weekend Multiplier",
+        description: "Time multiplier for calls on weekends (Saturday/Sunday)",
+        ruleType: "weekend_multiplier",
+        value: 2,
+        isActive: true,
+      },
+    }),
+    prisma.compensationRule.create({
+      data: {
+        name: "Holiday Multiplier",
+        description: "Time multiplier for calls on holidays",
+        ruleType: "holiday_multiplier",
+        value: 2,
+        isActive: true,
+      },
+    }),
+    prisma.compensationRule.create({
+      data: {
         name: "Period Cap",
         description: "Maximum PTO hours per engineer per report period",
         ruleType: "period_cap",

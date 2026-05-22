@@ -45,11 +45,17 @@ export function CompensationRulesForm({ initialRules, isAdmin }: Props) {
     const rule = initialRules.find((r) => r.ruleType === "period_cap" && r.isActive);
     return rule?.value ?? 24;
   };
+  const getRuleValue = (ruleType: string, defaultVal: number) => {
+    const rule = initialRules.find((r) => r.ruleType === ruleType && r.isActive);
+    return rule?.value ?? defaultVal;
+  };
 
   const [p1Mult, setP1Mult] = useState(getMultiplier("P1"));
   const [p2Mult, setP2Mult] = useState(getMultiplier("P2"));
   const [p3Mult, setP3Mult] = useState(getMultiplier("P3"));
   const [p4Mult, setP4Mult] = useState(getMultiplier("P4"));
+  const [weekendMult, setWeekendMult] = useState(getRuleValue("weekend_multiplier", 2));
+  const [holidayMult, setHolidayMult] = useState(getRuleValue("holiday_multiplier", 2));
   const [periodCap, setPeriodCap] = useState(getCapValue());
   const [loading, setLoading] = useState(false);
 
@@ -80,6 +86,8 @@ export function CompensationRulesForm({ initialRules, isAdmin }: Props) {
     setLoading(true);
     try {
       const rules: Rule[] = [
+        { name: "Weekend Multiplier", description: "Multiplier for Saturday/Sunday calls", ruleType: "weekend_multiplier", value: weekendMult, severity: null, isActive: true },
+        { name: "Holiday Multiplier", description: "Multiplier for holiday calls (takes precedence over weekend)", ruleType: "holiday_multiplier", value: holidayMult, severity: null, isActive: true },
         { name: "P1 Multiplier", description: "Multiplier for P1 severity calls", ruleType: "severity_multiplier", value: p1Mult, severity: "P1", isActive: true },
         { name: "P2 Multiplier", description: "Multiplier for P2 severity calls", ruleType: "severity_multiplier", value: p2Mult, severity: "P2", isActive: true },
         { name: "P3 Multiplier", description: "Multiplier for P3 severity calls", ruleType: "severity_multiplier", value: p3Mult, severity: "P3", isActive: true },
@@ -162,8 +170,8 @@ export function CompensationRulesForm({ initialRules, isAdmin }: Props) {
         <CardContent className="space-y-3">
           <div className="bg-muted/50 rounded-md p-4 font-mono text-sm space-y-1">
             <p>For each call:</p>
-            <p className="ml-4">call_base = (duration &le; 60 min) ? 1h : 2h</p>
-            <p className="ml-4">time_mult = (weekend or holiday) ? 2x : 1x</p>
+            <p className="ml-4">call_base = ceil(duration / 60 min) &mdash; 1 PTO hour per started hour</p>
+            <p className="ml-4">time_mult = holiday ? holiday_rate : weekend ? weekend_rate : 1x</p>
             <p className="ml-4">sev_mult  = configured per severity below</p>
             <p className="ml-4 font-bold">call_pto  = call_base &times; time_mult &times; sev_mult</p>
             <p className="mt-2 font-bold">Total PTO = min( &Sigma; call_pto, period_cap )</p>
@@ -171,15 +179,47 @@ export function CompensationRulesForm({ initialRules, isAdmin }: Props) {
         </CardContent>
       </Card>
 
-      {/* Severity Multipliers + Cap */}
+      {/* Severity Multipliers + Time Multipliers + Cap */}
       <Card>
         <CardHeader>
           <CardTitle>Compensation Rules</CardTitle>
           <CardDescription>
-            Configure severity multipliers and the per-period cap.
+            Configure time multipliers, severity multipliers, and the per-period cap.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
+          {/* Time Multipliers */}
+          <div>
+            <Label className="text-sm font-medium mb-3 block">Time Multipliers</Label>
+            <div className="grid grid-cols-2 gap-4 max-w-sm">
+              <div className="space-y-2">
+                <Label className="text-xs text-muted-foreground">Weekend (Sat/Sun)</Label>
+                <Input
+                  type="number"
+                  step="0.25"
+                  min="1"
+                  value={weekendMult}
+                  onChange={(e) => setWeekendMult(parseFloat(e.target.value) || 1)}
+                  disabled={!isAdmin}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label className="text-xs text-muted-foreground">Holiday</Label>
+                <Input
+                  type="number"
+                  step="0.25"
+                  min="1"
+                  value={holidayMult}
+                  onChange={(e) => setHolidayMult(parseFloat(e.target.value) || 1)}
+                  disabled={!isAdmin}
+                />
+              </div>
+            </div>
+            <p className="text-xs text-muted-foreground mt-2">
+              Holiday takes precedence over weekend when both apply (no stacking).
+            </p>
+          </div>
+
           {/* Severity Multipliers */}
           <div>
             <Label className="text-sm font-medium mb-3 block">Severity Multipliers</Label>

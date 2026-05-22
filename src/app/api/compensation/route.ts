@@ -70,6 +70,10 @@ async function handleCalculate(periodStart: string | null, periodEnd: string | n
   const capRule = rules.find((r) => r.ruleType === "period_cap");
   const periodCap = capRule?.value ?? null; // null means no cap
 
+  // Get time multipliers
+  const weekendMult = rules.find((r) => r.ruleType === "weekend_multiplier")?.value ?? 2;
+  const holidayMult = rules.find((r) => r.ruleType === "holiday_multiplier")?.value ?? 2;
+
   // Get holidays for the period
   const customHolidaysDb = await prisma.holiday.findMany({
     where: {
@@ -127,15 +131,17 @@ async function handleCalculate(periodStart: string | null, periodEnd: string | n
 
     // Calculate PTO for this call
     const durationMinutes = call.duration ?? 30; // Default 30 min if not set
-    const { pto, timeMult } = calculateCallPto(
+    const { pto, dayType } = calculateCallPto(
       durationMinutes,
       call.startTime,
       call.severity,
       severityMultipliers,
-      allHolidays
+      allHolidays,
+      weekendMult,
+      holidayMult
     );
 
-    if (timeMult > 1) {
+    if (dayType !== "weekday") {
       entry.weekendHolidayCalls += 1;
     } else {
       entry.regularCalls += 1;

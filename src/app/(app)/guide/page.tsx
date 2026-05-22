@@ -24,6 +24,7 @@ import {
   Hand,
   Shield,
 } from "lucide-react";
+import { CompensationCalculator } from "./compensation-calculator";
 
 export const dynamic = "force-dynamic";
 
@@ -32,6 +33,26 @@ export default async function GuidePage() {
     where: { isActive: true },
     orderBy: [{ ruleType: "asc" }, { severity: "asc" }],
   });
+
+  // Extract multipliers and cap for the calculator
+  const severityMultipliers: Record<string, number> = {};
+  let periodCap: number | null = null;
+  let weekendMult = 2;
+  let holidayMult = 2;
+  for (const rule of rules) {
+    if (rule.ruleType === "severity_multiplier" && rule.severity) {
+      severityMultipliers[rule.severity] = rule.value;
+    }
+    if (rule.ruleType === "period_cap") {
+      periodCap = rule.value;
+    }
+    if (rule.ruleType === "weekend_multiplier") {
+      weekendMult = rule.value;
+    }
+    if (rule.ruleType === "holiday_multiplier") {
+      holidayMult = rule.value;
+    }
+  }
 
   return (
     <div className="space-y-8 max-w-4xl">
@@ -264,8 +285,8 @@ export default async function GuidePage() {
           {/* Formula display */}
           <div className="bg-muted/50 rounded-md p-4 font-mono text-xs space-y-1">
             <p>For each call:</p>
-            <p className="ml-4">call_base = (duration &le; 60 min) ? 1h : 2h</p>
-            <p className="ml-4">time_mult = (weekend or holiday) ? 2x : 1x</p>
+            <p className="ml-4">call_base = ceil(duration_minutes / 60)</p>
+            <p className="ml-4">time_mult = holiday ? {holidayMult}x : weekend ? {weekendMult}x : 1x</p>
             <p className="ml-4">sev_mult  = configured per severity</p>
             <p className="ml-4 font-bold">call_pto  = call_base &times; time_mult &times; sev_mult</p>
             <p className="mt-2 font-bold">Total PTO = min( &Sigma; call_pto, period_cap )</p>
@@ -357,6 +378,14 @@ export default async function GuidePage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Interactive PTO Calculator */}
+      <CompensationCalculator
+        severityMultipliers={severityMultipliers}
+        periodCap={periodCap}
+        weekendMult={weekendMult}
+        holidayMult={holidayMult}
+      />
 
       {/* Slack Notifications */}
       <Card>
