@@ -193,7 +193,7 @@ model CompensationRule {
   id          String    @id @default(cuid())
   name        String
   description String?
-  ruleType    String    // "severity_multiplier", "period_cap"
+  ruleType    String
   value       Float
   severity    Severity?
   isActive    Boolean   @default(true)
