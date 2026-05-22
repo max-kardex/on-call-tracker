@@ -20,12 +20,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Spinner } from "@/components/ui/spinner";
 import { cn } from "@/lib/utils";
+import { toDisplayDate } from "@/lib/date-utils";
 import { useRouter } from "next/navigation";
-
-// Parse YYYY-MM-DD at noon local to avoid timezone day-shift
-function toDisplayDate(dateStr: string): Date {
-  return new Date(dateStr + "T12:00:00");
-}
 
 interface ScheduleEntry {
   id: string;

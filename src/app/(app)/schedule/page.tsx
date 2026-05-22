@@ -1,17 +1,13 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { startOfWeek, addWeeks, endOfWeek, format } from "date-fns";
+import { startOfWeek, addWeeks, endOfWeek } from "date-fns";
+import { toDateString } from "@/lib/date-utils";
 import { ScheduleCalendar } from "./schedule-calendar";
 import { ScheduleMonthCalendar } from "./schedule-month-calendar";
 import { ScheduleViewToggle } from "./schedule-view-toggle";
 import { GenerateRotationForm } from "./generate-rotation-form";
 
 export const dynamic = "force-dynamic";
-
-// Format a Date to YYYY-MM-DD (timezone-safe for passing to client)
-function toDateString(date: Date): string {
-  return format(date, "yyyy-MM-dd");
-}
 
 export default async function SchedulePage() {
   const session = await auth();

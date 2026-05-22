@@ -17,11 +17,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { toast } from "sonner";
 import { Check, X, UserRoundPen, Trash2, Hand, CalendarPlus } from "lucide-react";
 import { useRouter } from "next/navigation";
-
-// Parse YYYY-MM-DD at noon local to avoid timezone day-shift
-function toDisplayDate(dateStr: string): Date {
-  return new Date(dateStr + "T12:00:00");
-}
+import { toDisplayDate } from "@/lib/date-utils";
 
 interface ScheduleEntry {
   id: string;
