@@ -62,7 +62,7 @@ async function handleSelfAssign(
     return NextResponse.json({ error: "User ID not found" }, { status: 400 });
   }
 
-  const weekStartDate = startOfWeek(new Date(weekStart), { weekStartsOn: 1 });
+  const weekStartDate = startOfWeek(new Date(weekStart + "T12:00:00"), { weekStartsOn: 1 });
   const today = startOfDay(new Date());
 
   // Validate: must be a future week
@@ -136,7 +136,7 @@ async function handleGenerateRotation(body: {
     );
   }
 
-  const baseDate = startOfWeek(new Date(startDate), { weekStartsOn: 1 });
+  const baseDate = startOfWeek(new Date(startDate + "T12:00:00"), { weekStartsOn: 1 });
   const windowEnd = addWeeks(baseDate, weeks);
 
   // Find existing entries in this generation window (including self-assigned)
@@ -244,7 +244,7 @@ async function handleCreateEntry(body: {
   notes?: string;
 }) {
   const { userId, weekStart, notes } = body;
-  const weekStartDate = startOfWeek(new Date(weekStart), { weekStartsOn: 1 });
+  const weekStartDate = startOfWeek(new Date(weekStart + "T12:00:00"), { weekStartsOn: 1 });
   const weekEndDate = endOfWeek(weekStartDate, { weekStartsOn: 1 });
 
   const schedule = await prisma.schedule.create({
