@@ -12,12 +12,17 @@ import {
   eachDayOfInterval,
   isSameMonth,
   isToday,
-  parseISO,
   isWithinInterval,
   isMonday,
   isBefore,
   startOfDay,
 } from "date-fns";
+
+// Parse ISO date string at noon to avoid timezone day-shift issues
+function toDisplayDate(isoString: string): Date {
+  const datePart = isoString.split("T")[0];
+  return new Date(datePart + "T12:00:00");
+}
 import { ChevronLeft, ChevronRight, CalendarDays, Hand } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -97,8 +102,8 @@ export function ScheduleMonthCalendar({ schedules, openWeeks, currentUserId }: P
   function getScheduleForDay(day: Date): ScheduleEntry | undefined {
     return schedules.find((s) =>
       isWithinInterval(day, {
-        start: parseISO(s.weekStart),
-        end: parseISO(s.weekEnd),
+        start: toDisplayDate(s.weekStart),
+        end: toDisplayDate(s.weekEnd),
       })
     );
   }

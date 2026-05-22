@@ -2,6 +2,12 @@
 
 import { useState } from "react";
 import { format, parseISO, isBefore, startOfDay, startOfWeek, endOfWeek } from "date-fns";
+
+// Parse ISO date string at noon to avoid timezone day-shift issues
+function toDisplayDate(isoString: string): Date {
+  const datePart = isoString.split("T")[0];
+  return new Date(datePart + "T12:00:00");
+}
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -183,6 +189,8 @@ export function ScheduleCalendar({ schedules, engineers, isAdmin, openWeeks, cur
         if (item.type === "open") {
           const weekStartDate = parseISO(item.weekStart);
           const isFuture = !isBefore(weekStartDate, today);
+          const displayStart = toDisplayDate(item.weekStart);
+          const displayEnd = toDisplayDate(item.weekEnd);
 
           return (
             <Card
@@ -193,11 +201,11 @@ export function ScheduleCalendar({ schedules, engineers, isAdmin, openWeeks, cur
                 {/* Date range */}
                 <div className="w-48 shrink-0">
                   <p className="text-sm font-medium text-muted-foreground">
-                    {format(weekStartDate, "MMM d")} -{" "}
-                    {format(parseISO(item.weekEnd), "MMM d, yyyy")}
+                    {format(displayStart, "MMM d")} -{" "}
+                    {format(displayEnd, "MMM d, yyyy")}
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    Week of {format(weekStartDate, "MMMM d")}
+                    Week of {format(displayStart, "MMMM d")}
                   </p>
                 </div>
 
@@ -239,6 +247,8 @@ export function ScheduleCalendar({ schedules, engineers, isAdmin, openWeeks, cur
           .join("") ?? "?";
         const isOwnSelfAssigned =
           schedule.isSelfAssigned && schedule.user.id === currentUserId;
+        const displayStart = toDisplayDate(schedule.weekStart);
+        const displayEnd = toDisplayDate(schedule.weekEnd);
 
         return (
           <Card key={schedule.id} className="hover:shadow-sm transition-shadow">
@@ -246,11 +256,11 @@ export function ScheduleCalendar({ schedules, engineers, isAdmin, openWeeks, cur
               {/* Date range */}
               <div className="w-48 shrink-0">
                 <p className="text-sm font-medium">
-                  {format(parseISO(schedule.weekStart), "MMM d")} -{" "}
-                  {format(parseISO(schedule.weekEnd), "MMM d, yyyy")}
+                  {format(displayStart, "MMM d")} -{" "}
+                  {format(displayEnd, "MMM d, yyyy")}
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  Week of {format(parseISO(schedule.weekStart), "MMMM d")}
+                  Week of {format(displayStart, "MMMM d")}
                 </p>
               </div>
 
