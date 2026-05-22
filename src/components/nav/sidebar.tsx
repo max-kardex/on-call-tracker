@@ -10,6 +10,7 @@ import {
   BarChart3,
   Settings,
   LayoutDashboard,
+  BookOpen,
 } from "lucide-react";
 
 const navItems = [
@@ -18,6 +19,7 @@ const navItems = [
   { href: "/calls", label: "Call Log", icon: Phone },
   { href: "/swaps", label: "Swaps", icon: ArrowLeftRight },
   { href: "/reports", label: "Reports", icon: BarChart3 },
+  { href: "/guide", label: "Guide", icon: BookOpen },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
 

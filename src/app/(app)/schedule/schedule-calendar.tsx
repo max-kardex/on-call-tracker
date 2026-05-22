@@ -1,9 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { format, parseISO } from "date-fns";
+import { format, parseISO, isBefore, startOfDay, startOfWeek, endOfWeek } from "date-fns";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   Select,
@@ -13,14 +13,17 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
+import { Spinner } from "@/components/ui/spinner";
 import { toast } from "sonner";
-import { Check, X, UserRoundPen, Trash2 } from "lucide-react";
+import { Check, X, UserRoundPen, Trash2, Hand, CalendarPlus } from "lucide-react";
+import { useRouter } from "next/navigation";
 
 interface ScheduleEntry {
   id: string;
   weekStart: string;
   weekEnd: string;
   isOverride: boolean;
+  isSelfAssigned: boolean;
   notes: string | null;
   user: {
     id: string;
@@ -41,11 +44,40 @@ interface Props {
   schedules: ScheduleEntry[];
   engineers: Engineer[];
   isAdmin: boolean;
+  openWeeks: string[];
+  currentUserId: string;
 }
 
-export function ScheduleCalendar({ schedules, engineers, isAdmin }: Props) {
+interface ListItem {
+  type: "schedule" | "open";
+  weekStart: string;
+  weekEnd: string;
+  schedule?: ScheduleEntry;
+}
+
+export function ScheduleCalendar({ schedules, engineers, isAdmin, openWeeks, currentUserId }: Props) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editUserId, setEditUserId] = useState<string>("");
+  const [loadingWeek, setLoadingWeek] = useState<string | null>(null);
+  const [withdrawingId, setWithdrawingId] = useState<string | null>(null);
+  const router = useRouter();
+
+  const today = startOfDay(new Date());
+
+  // Build a merged list: assigned weeks + open weeks, sorted by date
+  const items: ListItem[] = [
+    ...schedules.map((s) => ({
+      type: "schedule" as const,
+      weekStart: s.weekStart,
+      weekEnd: s.weekEnd,
+      schedule: s,
+    })),
+    ...openWeeks.map((ws) => ({
+      type: "open" as const,
+      weekStart: ws,
+      weekEnd: endOfWeek(parseISO(ws), { weekStartsOn: 1 }).toISOString(),
+    })),
+  ].sort((a, b) => new Date(a.weekStart).getTime() - new Date(b.weekStart).getTime());
 
   async function handleReassign(scheduleId: string) {
     if (!editUserId) return;
@@ -61,8 +93,7 @@ export function ScheduleCalendar({ schedules, engineers, isAdmin }: Props) {
         toast.success("Schedule updated successfully");
         setEditingId(null);
         setEditUserId("");
-        // Refresh page to show updated data
-        window.location.reload();
+        router.refresh();
       } else {
         toast.error("Failed to update schedule");
       }
@@ -81,7 +112,7 @@ export function ScheduleCalendar({ schedules, engineers, isAdmin }: Props) {
 
       if (res.ok) {
         toast.success("Schedule entry deleted");
-        window.location.reload();
+        router.refresh();
       } else {
         toast.error("Failed to delete schedule entry");
       }
@@ -90,12 +121,56 @@ export function ScheduleCalendar({ schedules, engineers, isAdmin }: Props) {
     }
   }
 
-  if (schedules.length === 0) {
+  async function handleSelfAssign(weekStart: string) {
+    setLoadingWeek(weekStart);
+    try {
+      const res = await fetch("/api/schedule", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "self-assign", weekStart }),
+      });
+
+      if (res.ok) {
+        toast.success("You've taken this on-call week!");
+        router.refresh();
+      } else {
+        const data = await res.json();
+        toast.error(data.error || "Failed to self-assign");
+      }
+    } catch {
+      toast.error("An error occurred");
+    } finally {
+      setLoadingWeek(null);
+    }
+  }
+
+  async function handleWithdraw(scheduleId: string) {
+    setWithdrawingId(scheduleId);
+    try {
+      const res = await fetch(`/api/schedule?id=${scheduleId}`, {
+        method: "DELETE",
+      });
+
+      if (res.ok) {
+        toast.success("Withdrawn from on-call week");
+        router.refresh();
+      } else {
+        const data = await res.json();
+        toast.error(data.error || "Failed to withdraw");
+      }
+    } catch {
+      toast.error("An error occurred");
+    } finally {
+      setWithdrawingId(null);
+    }
+  }
+
+  if (items.length === 0) {
     return (
       <Card>
         <CardContent className="py-8 text-center">
           <p className="text-muted-foreground">
-            No rotation schedule configured yet. Use the &quot;Generate Rotation&quot; button to create one.
+            No rotation schedule configured yet. Use the &quot;Generate Rotation&quot; button to create one, or self-assign a week below.
           </p>
         </CardContent>
       </Card>
@@ -104,12 +179,66 @@ export function ScheduleCalendar({ schedules, engineers, isAdmin }: Props) {
 
   return (
     <div className="grid gap-3">
-      {schedules.map((schedule) => {
+      {items.map((item) => {
+        if (item.type === "open") {
+          const weekStartDate = parseISO(item.weekStart);
+          const isFuture = !isBefore(weekStartDate, today);
+
+          return (
+            <Card
+              key={`open-${item.weekStart}`}
+              className="border-dashed hover:shadow-sm transition-shadow"
+            >
+              <CardContent className="flex items-center gap-4 py-4">
+                {/* Date range */}
+                <div className="w-48 shrink-0">
+                  <p className="text-sm font-medium text-muted-foreground">
+                    {format(weekStartDate, "MMM d")} -{" "}
+                    {format(parseISO(item.weekEnd), "MMM d, yyyy")}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    Week of {format(weekStartDate, "MMMM d")}
+                  </p>
+                </div>
+
+                {/* Available indicator */}
+                <div className="flex items-center gap-3 flex-1">
+                  <div className="h-8 w-8 rounded-full border-2 border-dashed border-muted-foreground/30 flex items-center justify-center">
+                    <CalendarPlus className="h-4 w-4 text-muted-foreground/50" />
+                  </div>
+                  <p className="text-sm text-muted-foreground italic">Available</p>
+                </div>
+
+                {/* Self-assign button */}
+                {isFuture && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => handleSelfAssign(item.weekStart)}
+                    disabled={loadingWeek === item.weekStart}
+                  >
+                    {loadingWeek === item.weekStart ? (
+                      <Spinner className="h-4 w-4" />
+                    ) : (
+                      <Hand className="h-4 w-4" />
+                    )}
+                    Take This Week
+                  </Button>
+                )}
+              </CardContent>
+            </Card>
+          );
+        }
+
+        // Assigned week
+        const schedule = item.schedule!;
         const isEditing = editingId === schedule.id;
         const initials = schedule.user.name
           ?.split(" ")
           .map((n) => n[0])
           .join("") ?? "?";
+        const isOwnSelfAssigned =
+          schedule.isSelfAssigned && schedule.user.id === currentUserId;
 
         return (
           <Card key={schedule.id} className="hover:shadow-sm transition-shadow">
@@ -141,67 +270,94 @@ export function ScheduleCalendar({ schedules, engineers, isAdmin }: Props) {
 
               {/* Badges */}
               <div className="flex items-center gap-2">
+                {schedule.isSelfAssigned && (
+                  <Badge variant="secondary" className="gap-1">
+                    <Hand className="h-3 w-3" />
+                    Volunteered
+                  </Badge>
+                )}
                 {schedule.isOverride && (
                   <Badge variant="outline">Override</Badge>
                 )}
               </div>
 
-              {/* Admin actions */}
-              {isAdmin && (
-                <div className="flex items-center gap-2">
-                  {isEditing ? (
-                    <>
-                      <Select value={editUserId} onValueChange={(v) => setEditUserId(v ?? "")}>
-                        <SelectTrigger className="w-40">
-                          <SelectValue placeholder="Select engineer" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {engineers.map((eng) => (
-                            <SelectItem key={eng.id} value={eng.id}>
-                              {eng.name ?? eng.email}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <Button size="sm" onClick={() => handleReassign(schedule.id)}>
-                        <Check className="h-4 w-4" />
-                        Save
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => setEditingId(null)}
-                      >
-                        <X className="h-4 w-4" />
-                        Cancel
-                      </Button>
-                    </>
-                  ) : (
-                    <>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => {
-                          setEditingId(schedule.id);
-                          setEditUserId(schedule.user.id);
-                        }}
-                      >
-                        <UserRoundPen className="h-4 w-4" />
-                        Reassign
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="text-destructive"
-                        onClick={() => handleDelete(schedule.id)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                        Delete
-                      </Button>
-                    </>
-                  )}
-                </div>
-              )}
+              {/* Actions */}
+              <div className="flex items-center gap-2">
+                {/* Non-admin: withdraw own self-assigned */}
+                {isOwnSelfAssigned && !isAdmin && (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="text-destructive"
+                    onClick={() => handleWithdraw(schedule.id)}
+                    disabled={withdrawingId === schedule.id}
+                  >
+                    {withdrawingId === schedule.id ? (
+                      <Spinner className="h-4 w-4" />
+                    ) : (
+                      <X className="h-4 w-4" />
+                    )}
+                    Withdraw
+                  </Button>
+                )}
+
+                {/* Admin actions */}
+                {isAdmin && (
+                  <>
+                    {isEditing ? (
+                      <>
+                        <Select value={editUserId} onValueChange={(v) => setEditUserId(v ?? "")}>
+                          <SelectTrigger className="w-40">
+                            <SelectValue placeholder="Select engineer" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {engineers.map((eng) => (
+                              <SelectItem key={eng.id} value={eng.id}>
+                                {eng.name ?? eng.email}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <Button size="sm" onClick={() => handleReassign(schedule.id)}>
+                          <Check className="h-4 w-4" />
+                          Save
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => setEditingId(null)}
+                        >
+                          <X className="h-4 w-4" />
+                          Cancel
+                        </Button>
+                      </>
+                    ) : (
+                      <>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            setEditingId(schedule.id);
+                            setEditUserId(schedule.user.id);
+                          }}
+                        >
+                          <UserRoundPen className="h-4 w-4" />
+                          Reassign
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="text-destructive"
+                          onClick={() => handleDelete(schedule.id)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                          Delete
+                        </Button>
+                      </>
+                    )}
+                  </>
+                )}
+              </div>
             </CardContent>
           </Card>
         );

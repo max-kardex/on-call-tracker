@@ -104,14 +104,15 @@ enum SwapType {
 
 // Weekly on-call schedule assignment
 model Schedule {
-  id          String   @id @default(cuid())
-  userId      String
-  weekStart   DateTime // Monday of the on-call week
-  weekEnd     DateTime // Sunday end of the on-call week
-  isOverride  Boolean  @default(false)
-  notes       String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id             String   @id @default(cuid())
+  userId         String
+  weekStart      DateTime // Monday of the on-call week
+  weekEnd        DateTime // Sunday end of the on-call week
+  isOverride     Boolean  @default(false)
+  isSelfAssigned Boolean  @default(false)
+  notes          String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
   user     User      @relation(fields: [userId], references: [id])
   callLogs CallLog[]

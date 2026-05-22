@@ -14,17 +14,23 @@ import {
   isToday,
   parseISO,
   isWithinInterval,
+  isMonday,
+  isBefore,
+  startOfDay,
 } from "date-fns";
-import { ChevronLeft, ChevronRight, CalendarDays } from "lucide-react";
+import { ChevronLeft, ChevronRight, CalendarDays, Hand } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Spinner } from "@/components/ui/spinner";
 import { cn } from "@/lib/utils";
+import { useRouter } from "next/navigation";
 
 interface ScheduleEntry {
   id: string;
   weekStart: string;
   weekEnd: string;
   isOverride: boolean;
+  isSelfAssigned: boolean;
   notes: string | null;
   user: {
     id: string;
@@ -36,6 +42,8 @@ interface ScheduleEntry {
 
 interface Props {
   schedules: ScheduleEntry[];
+  openWeeks: string[];
+  currentUserId: string;
 }
 
 // Each entry has both light + dark compatible classes in a single string
@@ -57,8 +65,13 @@ const ENGINEER_COLORS = [
   "bg-sky-100 text-sky-800 border-sky-200 dark:bg-sky-500/20 dark:text-sky-300 dark:border-sky-500/30",
 ];
 
-export function ScheduleMonthCalendar({ schedules }: Props) {
+export function ScheduleMonthCalendar({ schedules, openWeeks, currentUserId }: Props) {
   const [currentMonth, setCurrentMonth] = useState(new Date());
+  const [loadingWeek, setLoadingWeek] = useState<string | null>(null);
+  const router = useRouter();
+
+  // Set of open week ISO strings for quick lookup
+  const openWeekSet = useMemo(() => new Set(openWeeks), [openWeeks]);
 
   // Build a color map for engineers based on order of appearance
   const engineerColorMap = useMemo(() => {
@@ -90,7 +103,32 @@ export function ScheduleMonthCalendar({ schedules }: Props) {
     );
   }
 
+  // Check if a day is the Monday of an open week
+  function isOpenWeekMonday(day: Date): boolean {
+    if (!isMonday(day)) return false;
+    // Find matching open week by comparing the Monday
+    const dayStart = startOfWeek(day, { weekStartsOn: 1 });
+    return openWeekSet.has(dayStart.toISOString());
+  }
+
+  async function handleSelfAssign(weekStart: string) {
+    setLoadingWeek(weekStart);
+    try {
+      const res = await fetch("/api/schedule", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "self-assign", weekStart }),
+      });
+      if (res.ok) {
+        router.refresh();
+      }
+    } finally {
+      setLoadingWeek(null);
+    }
+  }
+
   const weekdays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+  const today = startOfDay(new Date());
 
   return (
     <Card>
@@ -141,24 +179,28 @@ export function ScheduleMonthCalendar({ schedules }: Props) {
           {calendarDays.map((day) => {
             const schedule = getScheduleForDay(day);
             const inMonth = isSameMonth(day, currentMonth);
-            const today = isToday(day);
+            const isTodayCell = isToday(day);
             const colorIdx = schedule
               ? engineerColorMap.get(schedule.user.id) ?? 0
               : 0;
+            const isOpenMonday = isOpenWeekMonday(day);
+            const isFuture = !isBefore(day, today);
+            const weekIso = startOfWeek(day, { weekStartsOn: 1 }).toISOString();
 
             return (
               <div
                 key={day.toISOString()}
                 className={cn(
                   "min-h-[140px] p-2 bg-background flex flex-col",
-                  !inMonth && "opacity-40"
+                  !inMonth && "opacity-40",
+                  isOpenMonday && isFuture && "bg-dashed-pattern"
                 )}
               >
                 {/* Day number */}
                 <span
                   className={cn(
                     "text-xs font-medium w-6 h-6 flex items-center justify-center rounded-full",
-                    today && "bg-primary text-primary-foreground"
+                    isTodayCell && "bg-primary text-primary-foreground"
                   )}
                 >
                   {format(day, "d")}
@@ -171,11 +213,31 @@ export function ScheduleMonthCalendar({ schedules }: Props) {
                       "mt-1 rounded border px-1.5 py-0.5 text-[10px] font-medium leading-tight truncate",
                       ENGINEER_COLORS[colorIdx]
                     )}
-                    title={`${schedule.user.name ?? schedule.user.email}${schedule.isOverride ? " (override)" : ""}`}
+                    title={`${schedule.user.name ?? schedule.user.email}${schedule.isOverride ? " (override)" : ""}${schedule.isSelfAssigned ? " (volunteered)" : ""}`}
                   >
+                    {schedule.isSelfAssigned && (
+                      <Hand className="inline h-2.5 w-2.5 mr-0.5" />
+                    )}
                     {schedule.user.name?.split(" ")[0] ?? schedule.user.email?.split("@")[0]}
                     {schedule.isOverride && " *"}
                   </div>
+                )}
+
+                {/* Self-assign button on Monday of open future weeks */}
+                {isOpenMonday && isFuture && !schedule && (
+                  <button
+                    onClick={() => handleSelfAssign(weekIso)}
+                    disabled={loadingWeek === weekIso}
+                    className="mt-1 flex items-center gap-0.5 rounded border border-dashed border-muted-foreground/40 px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground hover:border-primary hover:text-primary transition-colors disabled:opacity-50"
+                    title="Take this week"
+                  >
+                    {loadingWeek === weekIso ? (
+                      <Spinner className="h-2.5 w-2.5" />
+                    ) : (
+                      <Hand className="h-2.5 w-2.5" />
+                    )}
+                    Take
+                  </button>
                 )}
               </div>
             );
@@ -200,6 +262,10 @@ export function ScheduleMonthCalendar({ schedules }: Props) {
                 </div>
               );
             })}
+            <div className="inline-flex items-center gap-1 rounded border border-dashed border-muted-foreground/40 px-2 py-0.5 text-xs text-muted-foreground">
+              <Hand className="h-3 w-3" />
+              Self-assigned
+            </div>
           </div>
         )}
       </CardContent>

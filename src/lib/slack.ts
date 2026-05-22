@@ -69,6 +69,26 @@ export async function notifySwapRequest(
   });
 }
 
+export async function notifyVolunteer(engineerName: string, weekStart: string) {
+  const config = await prisma.slackConfig.findFirst({
+    where: { isActive: true, notifyOnRotation: true },
+  });
+  if (!config) return;
+
+  await sendSlackNotification({
+    text: `${engineerName} volunteered for on-call week of ${weekStart}`,
+    blocks: [
+      {
+        type: "section",
+        text: {
+          type: "mrkdwn",
+          text: `*Volunteer* :raised_hand:\n\n*${engineerName}* has taken the on-call week of *${weekStart}*.`,
+        },
+      },
+    ],
+  });
+}
+
 export async function notifyHighSeverityCall(
   engineerName: string,
   severity: string,

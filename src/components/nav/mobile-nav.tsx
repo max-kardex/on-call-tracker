@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import { Menu, Phone, Calendar, ArrowLeftRight, BarChart3, Settings, LayoutDashboard } from "lucide-react";
+import { Menu, Phone, Calendar, ArrowLeftRight, BarChart3, Settings, LayoutDashboard, BookOpen } from "lucide-react";
 import { useState } from "react";
 
 const navItems = [
@@ -13,6 +13,7 @@ const navItems = [
   { href: "/calls", label: "Call Log", icon: Phone },
   { href: "/swaps", label: "Swaps", icon: ArrowLeftRight },
   { href: "/reports", label: "Reports", icon: BarChart3 },
+  { href: "/guide", label: "Guide", icon: BookOpen },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
 

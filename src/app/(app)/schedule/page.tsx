@@ -10,6 +10,7 @@ export const dynamic = "force-dynamic";
 
 export default async function SchedulePage() {
   const session = await auth();
+  const currentUserId = (session?.user as any)?.id as string;
 
   // Fetch schedules for next 12 weeks
   const now = new Date();
@@ -39,9 +40,24 @@ export default async function SchedulePage() {
     weekStart: s.weekStart.toISOString(),
     weekEnd: s.weekEnd.toISOString(),
     isOverride: s.isOverride,
+    isSelfAssigned: s.isSelfAssigned,
     notes: s.notes,
     user: s.user,
   }));
+
+  // Compute all 12 Monday dates and find which are open (unassigned)
+  const assignedWeekStarts = new Set(
+    serializedSchedules.map((s) => s.weekStart)
+  );
+
+  const openWeeks: string[] = [];
+  for (let i = 0; i < 12; i++) {
+    const monday = addWeeks(start, i);
+    const mondayIso = monday.toISOString();
+    if (!assignedWeekStarts.has(mondayIso)) {
+      openWeeks.push(mondayIso);
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -57,13 +73,19 @@ export default async function SchedulePage() {
 
       <ScheduleViewToggle
         calendarView={
-          <ScheduleMonthCalendar schedules={serializedSchedules} />
+          <ScheduleMonthCalendar
+            schedules={serializedSchedules}
+            openWeeks={openWeeks}
+            currentUserId={currentUserId}
+          />
         }
         listView={
           <ScheduleCalendar
             schedules={serializedSchedules}
             engineers={engineers}
             isAdmin={isAdmin}
+            openWeeks={openWeeks}
+            currentUserId={currentUserId}
           />
         }
       />
