@@ -1,13 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { format, parseISO, isBefore, startOfDay, startOfWeek, endOfWeek } from "date-fns";
-
-// Parse ISO date string at noon to avoid timezone day-shift issues
-function toDisplayDate(isoString: string): Date {
-  const datePart = isoString.split("T")[0];
-  return new Date(datePart + "T12:00:00");
-}
+import { format } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -24,10 +18,15 @@ import { toast } from "sonner";
 import { Check, X, UserRoundPen, Trash2, Hand, CalendarPlus } from "lucide-react";
 import { useRouter } from "next/navigation";
 
+// Parse YYYY-MM-DD at noon local to avoid timezone day-shift
+function toDisplayDate(dateStr: string): Date {
+  return new Date(dateStr + "T12:00:00");
+}
+
 interface ScheduleEntry {
   id: string;
-  weekStart: string;
-  weekEnd: string;
+  weekStart: string; // YYYY-MM-DD
+  weekEnd: string; // YYYY-MM-DD
   isOverride: boolean;
   isSelfAssigned: boolean;
   notes: string | null;
@@ -46,11 +45,16 @@ interface Engineer {
   image: string | null;
 }
 
+interface OpenWeek {
+  weekStart: string; // YYYY-MM-DD
+  weekEnd: string; // YYYY-MM-DD
+}
+
 interface Props {
   schedules: ScheduleEntry[];
   engineers: Engineer[];
   isAdmin: boolean;
-  openWeeks: string[];
+  openWeeks: OpenWeek[];
   currentUserId: string;
 }
 
@@ -68,7 +72,7 @@ export function ScheduleCalendar({ schedules, engineers, isAdmin, openWeeks, cur
   const [withdrawingId, setWithdrawingId] = useState<string | null>(null);
   const router = useRouter();
 
-  const today = startOfDay(new Date());
+  const todayStr = new Date().toISOString().split("T")[0];
 
   // Build a merged list: assigned weeks + open weeks, sorted by date
   const items: ListItem[] = [
@@ -78,12 +82,12 @@ export function ScheduleCalendar({ schedules, engineers, isAdmin, openWeeks, cur
       weekEnd: s.weekEnd,
       schedule: s,
     })),
-    ...openWeeks.map((ws) => ({
+    ...openWeeks.map((ow) => ({
       type: "open" as const,
-      weekStart: ws,
-      weekEnd: endOfWeek(parseISO(ws), { weekStartsOn: 1 }).toISOString(),
+      weekStart: ow.weekStart,
+      weekEnd: ow.weekEnd,
     })),
-  ].sort((a, b) => new Date(a.weekStart).getTime() - new Date(b.weekStart).getTime());
+  ].sort((a, b) => a.weekStart.localeCompare(b.weekStart));
 
   async function handleReassign(scheduleId: string) {
     if (!editUserId) return;
@@ -187,8 +191,7 @@ export function ScheduleCalendar({ schedules, engineers, isAdmin, openWeeks, cur
     <div className="grid gap-3">
       {items.map((item) => {
         if (item.type === "open") {
-          const weekStartDate = parseISO(item.weekStart);
-          const isFuture = !isBefore(weekStartDate, today);
+          const isFuture = item.weekStart >= todayStr;
           const displayStart = toDisplayDate(item.weekStart);
           const displayEnd = toDisplayDate(item.weekEnd);
 

@@ -14,15 +14,7 @@ import {
   isToday,
   isWithinInterval,
   isMonday,
-  isBefore,
-  startOfDay,
 } from "date-fns";
-
-// Parse ISO date string at noon to avoid timezone day-shift issues
-function toDisplayDate(isoString: string): Date {
-  const datePart = isoString.split("T")[0];
-  return new Date(datePart + "T12:00:00");
-}
 import { ChevronLeft, ChevronRight, CalendarDays, Hand } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -30,10 +22,15 @@ import { Spinner } from "@/components/ui/spinner";
 import { cn } from "@/lib/utils";
 import { useRouter } from "next/navigation";
 
+// Parse YYYY-MM-DD at noon local to avoid timezone day-shift
+function toDisplayDate(dateStr: string): Date {
+  return new Date(dateStr + "T12:00:00");
+}
+
 interface ScheduleEntry {
   id: string;
-  weekStart: string;
-  weekEnd: string;
+  weekStart: string; // YYYY-MM-DD
+  weekEnd: string; // YYYY-MM-DD
   isOverride: boolean;
   isSelfAssigned: boolean;
   notes: string | null;
@@ -45,9 +42,14 @@ interface ScheduleEntry {
   };
 }
 
+interface OpenWeek {
+  weekStart: string; // YYYY-MM-DD
+  weekEnd: string; // YYYY-MM-DD
+}
+
 interface Props {
   schedules: ScheduleEntry[];
-  openWeeks: string[];
+  openWeeks: OpenWeek[];
   currentUserId: string;
 }
 
@@ -75,8 +77,11 @@ export function ScheduleMonthCalendar({ schedules, openWeeks, currentUserId }: P
   const [loadingWeek, setLoadingWeek] = useState<string | null>(null);
   const router = useRouter();
 
-  // Set of open week ISO strings for quick lookup
-  const openWeekSet = useMemo(() => new Set(openWeeks), [openWeeks]);
+  // Set of open week start dates for quick lookup
+  const openWeekStartSet = useMemo(
+    () => new Set(openWeeks.map((ow) => ow.weekStart)),
+    [openWeeks]
+  );
 
   // Build a color map for engineers based on order of appearance
   const engineerColorMap = useMemo(() => {
@@ -111,9 +116,8 @@ export function ScheduleMonthCalendar({ schedules, openWeeks, currentUserId }: P
   // Check if a day is the Monday of an open week
   function isOpenWeekMonday(day: Date): boolean {
     if (!isMonday(day)) return false;
-    // Find matching open week by comparing the Monday
-    const dayStart = startOfWeek(day, { weekStartsOn: 1 });
-    return openWeekSet.has(dayStart.toISOString());
+    const dayStr = format(day, "yyyy-MM-dd");
+    return openWeekStartSet.has(dayStr);
   }
 
   async function handleSelfAssign(weekStart: string) {
@@ -133,7 +137,7 @@ export function ScheduleMonthCalendar({ schedules, openWeeks, currentUserId }: P
   }
 
   const weekdays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-  const today = startOfDay(new Date());
+  const todayStr = new Date().toISOString().split("T")[0];
 
   return (
     <Card>
@@ -189,16 +193,15 @@ export function ScheduleMonthCalendar({ schedules, openWeeks, currentUserId }: P
               ? engineerColorMap.get(schedule.user.id) ?? 0
               : 0;
             const isOpenMonday = isOpenWeekMonday(day);
-            const isFuture = !isBefore(day, today);
-            const weekIso = startOfWeek(day, { weekStartsOn: 1 }).toISOString();
+            const dayStr = format(day, "yyyy-MM-dd");
+            const isFuture = dayStr >= todayStr;
 
             return (
               <div
                 key={day.toISOString()}
                 className={cn(
                   "min-h-[140px] p-2 bg-background flex flex-col",
-                  !inMonth && "opacity-40",
-                  isOpenMonday && isFuture && "bg-dashed-pattern"
+                  !inMonth && "opacity-40"
                 )}
               >
                 {/* Day number */}
@@ -231,12 +234,12 @@ export function ScheduleMonthCalendar({ schedules, openWeeks, currentUserId }: P
                 {/* Self-assign button on Monday of open future weeks */}
                 {isOpenMonday && isFuture && !schedule && (
                   <button
-                    onClick={() => handleSelfAssign(weekIso)}
-                    disabled={loadingWeek === weekIso}
+                    onClick={() => handleSelfAssign(dayStr)}
+                    disabled={loadingWeek === dayStr}
                     className="mt-1 flex items-center gap-0.5 rounded border border-dashed border-muted-foreground/40 px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground hover:border-primary hover:text-primary transition-colors disabled:opacity-50"
                     title="Take this week"
                   >
-                    {loadingWeek === weekIso ? (
+                    {loadingWeek === dayStr ? (
                       <Spinner className="h-2.5 w-2.5" />
                     ) : (
                       <Hand className="h-2.5 w-2.5" />
