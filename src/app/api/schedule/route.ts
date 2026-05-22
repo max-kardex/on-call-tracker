@@ -32,7 +32,15 @@ export async function GET(request: NextRequest) {
 
   const schedules = await prisma.schedule.findMany({
     where,
-    include: { user: { select: { id: true, name: true, fullName: true, email: true, image: true } } },
+    include: {
+      user: { select: { id: true, name: true, fullName: true, email: true, image: true } },
+      dayCoverages: {
+        include: {
+          user: { select: { id: true, name: true, fullName: true, email: true, image: true } },
+        },
+        orderBy: { date: "asc" },
+      },
+    },
     orderBy: { weekStart: "asc" },
   });
 

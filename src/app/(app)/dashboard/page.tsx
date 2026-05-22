@@ -43,18 +43,14 @@ export default async function DashboardPage() {
     take: 5,
   });
 
-  // Pending swap requests for current user
-  const pendingSwaps = await prisma.swapRequest.findMany({
+  // Open swap board posts
+  const pendingSwaps = await prisma.swapPost.findMany({
     where: {
-      OR: [
-        { requesterId: session?.user?.id },
-        { targetId: session?.user?.id },
-      ],
-      status: "PENDING",
+      status: "OPEN",
     },
     include: {
-      requester: true,
-      target: true,
+      poster: true,
+      claimer: true,
     },
     orderBy: { createdAt: "desc" },
     take: 5,
@@ -65,8 +61,8 @@ export default async function DashboardPage() {
     where: { startTime: { gte: weekStart, lte: weekEnd } },
   });
 
-  const pendingSwapCount = await prisma.swapRequest.count({
-    where: { status: "PENDING" },
+  const pendingSwapCount = await prisma.swapPost.count({
+    where: { status: "OPEN" },
   });
 
   return (
@@ -110,13 +106,13 @@ export default async function DashboardPage() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Pending Swaps</CardTitle>
+            <CardTitle className="text-sm font-medium">Open Swap Posts</CardTitle>
             <ArrowLeftRight className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{pendingSwapCount}</div>
             <p className="text-xs text-muted-foreground">
-              Awaiting response
+              Available to claim
             </p>
           </CardContent>
         </Card>
@@ -225,12 +221,12 @@ export default async function DashboardPage() {
         </Card>
       </div>
 
-      {/* Pending Swaps */}
+      {/* Open Swap Posts */}
       {pendingSwaps.length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle>Pending Swap Requests</CardTitle>
-            <CardDescription>Requests that need your attention</CardDescription>
+            <CardTitle>Open Swap Board Posts</CardTitle>
+            <CardDescription>Posts available to claim</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
@@ -238,14 +234,16 @@ export default async function DashboardPage() {
                 <div key={swap.id} className="flex items-center justify-between">
                   <div className="space-y-1">
                     <p className="text-sm font-medium leading-none">
-                      {swap.requester.fullName ?? swap.requester.name} wants to swap with {swap.target.fullName ?? swap.target.name}
+                      {swap.poster.fullName ?? swap.poster.name} —{" "}
+                      {swap.postType === "SWAP" ? "wants to swap" : "giving away"}{" "}
+                      {swap.coverageType === "FULL_WEEK" ? "full week" : "specific days"}
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      Week of {format(swap.originalWeekStart, "MMM d, yyyy")}
+                      Week of {format(swap.weekStart, "MMM d, yyyy")}
                       {swap.reason && ` - ${swap.reason}`}
                     </p>
                   </div>
-                  <Badge>Pending</Badge>
+                  <Badge>Open</Badge>
                 </div>
               ))}
             </div>
@@ -253,7 +251,7 @@ export default async function DashboardPage() {
               href="/swaps"
               className="mt-4 inline-block text-sm text-primary hover:underline"
             >
-              Manage swaps
+              View swap board
             </Link>
           </CardContent>
         </Card>

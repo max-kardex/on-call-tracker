@@ -44,32 +44,38 @@ export function canSelfAssign(session: Session | null): boolean {
   return hasAnyRole(session, ["ENGINEER", "ADMIN"]);
 }
 
-/** Can the user create swap requests? (ENGINEER or ADMIN) */
+/** Can the user create swap board posts? (ENGINEER or ADMIN) */
 export function canCreateSwap(session: Session | null): boolean {
   return hasAnyRole(session, ["ENGINEER", "ADMIN"]);
 }
 
 /**
- * Can the user approve/reject a swap request?
+ * Can the user claim a swap board post?
  * Rules:
- * 1. The requester can NEVER approve their own request (even if admin/manager)
- * 2. The target user can always approve/reject (consent-based)
- * 3. MANAGER or ADMIN can approve/reject (override authority) if they're not the requester
+ * 1. Must be an ENGINEER or ADMIN
+ * 2. Cannot claim your own post
  */
-export function canApproveSwap(
+export function canClaimSwap(
   session: Session | null,
-  swap: { requesterId: string; targetId: string }
+  swap: { posterId: string }
 ): boolean {
   if (!session?.user) return false;
-  const userId = session.user.id;
+  if (session.user.id === swap.posterId) return false;
+  return hasAnyRole(session, ["ENGINEER", "ADMIN"]);
+}
 
-  // Rule 1: requester can never approve their own request
-  if (userId === swap.requesterId) return false;
-
-  // Rule 2: target can approve
-  if (userId === swap.targetId) return true;
-
-  // Rule 3: manager/admin can approve (unless they're the requester, already blocked above)
+/**
+ * Can the user cancel a swap board post?
+ * Rules:
+ * 1. The poster can always cancel their own post
+ * 2. MANAGER or ADMIN can cancel any post (moderation)
+ */
+export function canCancelSwap(
+  session: Session | null,
+  swap: { posterId: string }
+): boolean {
+  if (!session?.user) return false;
+  if (session.user.id === swap.posterId) return true;
   return hasAnyRole(session, ["MANAGER", "ADMIN"]);
 }
 

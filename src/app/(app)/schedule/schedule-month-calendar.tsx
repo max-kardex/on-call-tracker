@@ -15,13 +15,26 @@ import {
   isWithinInterval,
   isMonday,
 } from "date-fns";
-import { ChevronLeft, ChevronRight, CalendarDays, Hand } from "lucide-react";
+import { ChevronLeft, ChevronRight, CalendarDays, Hand, ArrowLeftRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Spinner } from "@/components/ui/spinner";
 import { cn } from "@/lib/utils";
 import { toDisplayDate } from "@/lib/date-utils";
 import { useRouter } from "next/navigation";
+
+interface ScheduleUser {
+  id: string;
+  fullName: string | null;
+  name: string | null;
+  email: string | null;
+  image: string | null;
+}
+
+interface DayCoverageEntry {
+  date: string; // YYYY-MM-DD
+  user: ScheduleUser;
+}
 
 interface ScheduleEntry {
   id: string;
@@ -30,13 +43,8 @@ interface ScheduleEntry {
   isOverride: boolean;
   isSelfAssigned: boolean;
   notes: string | null;
-  user: {
-    id: string;
-    fullName: string | null;
-    name: string | null;
-    email: string | null;
-    image: string | null;
-  };
+  user: ScheduleUser;
+  dayCoverages: DayCoverageEntry[];
 }
 
 interface OpenWeek {
@@ -134,6 +142,10 @@ export function ScheduleMonthCalendar({ openWeeks, currentUserId }: Props) {
         isSelfAssigned: s.isSelfAssigned,
         notes: s.notes,
         user: s.user,
+        dayCoverages: (s.dayCoverages ?? []).map((dc: any) => ({
+          date: dc.date?.split("T")[0] ?? dc.date,
+          user: dc.user,
+        })),
       }));
 
       cache.current.set(cacheKey, entries);
@@ -162,6 +174,11 @@ export function ScheduleMonthCalendar({ openWeeks, currentUserId }: Props) {
       if (!map.has(s.user.id)) {
         map.set(s.user.id, map.size % ENGINEER_COLORS.length);
       }
+      s.dayCoverages.forEach((dc) => {
+        if (!map.has(dc.user.id)) {
+          map.set(dc.user.id, map.size % ENGINEER_COLORS.length);
+        }
+      });
     });
     return map;
   }, [schedules]);
@@ -174,6 +191,15 @@ export function ScheduleMonthCalendar({ openWeeks, currentUserId }: Props) {
         end: toDisplayDate(s.weekEnd),
       })
     );
+  }
+
+  // Find the day-coverage override (if any) for a given day within a schedule
+  function getDayCoverage(
+    schedule: ScheduleEntry,
+    day: Date
+  ): DayCoverageEntry | undefined {
+    const dayStr = format(day, "yyyy-MM-dd");
+    return schedule.dayCoverages.find((dc) => dc.date === dayStr);
   }
 
   // Check if a day is the Monday of an open week
@@ -260,10 +286,12 @@ export function ScheduleMonthCalendar({ openWeeks, currentUserId }: Props) {
           <div className="grid grid-cols-7 gap-px bg-border rounded-lg overflow-hidden">
             {calendarDays.map((day) => {
               const schedule = getScheduleForDay(day);
+              const dayCoverage = schedule ? getDayCoverage(schedule, day) : undefined;
+              const effectiveUser = dayCoverage?.user ?? schedule?.user;
               const inMonth = isSameMonth(day, currentMonth);
               const isTodayCell = isToday(day);
-              const colorIdx = schedule
-                ? engineerColorMap.get(schedule.user.id) ?? 0
+              const colorIdx = effectiveUser
+                ? engineerColorMap.get(effectiveUser.id) ?? 0
                 : 0;
               const isOpenMonday = isOpenWeekMonday(day);
               const dayStr = format(day, "yyyy-MM-dd");
@@ -288,19 +316,27 @@ export function ScheduleMonthCalendar({ openWeeks, currentUserId }: Props) {
                   </span>
 
                   {/* Schedule indicator */}
-                  {schedule && (
+                  {schedule && effectiveUser && (
                     <div
                       className={cn(
                         "mt-1 rounded border px-1.5 py-0.5 text-[10px] font-medium leading-tight truncate",
-                        ENGINEER_COLORS[colorIdx]
+                        ENGINEER_COLORS[colorIdx],
+                        dayCoverage && "ring-1 ring-offset-1 ring-offset-background ring-current/40"
                       )}
-                      title={`${schedule.user.fullName ?? schedule.user.name ?? schedule.user.email}${schedule.isOverride ? " (override)" : ""}${schedule.isSelfAssigned ? " (volunteered)" : ""}`}
+                      title={
+                        dayCoverage
+                          ? `${dayCoverage.user.fullName ?? dayCoverage.user.name ?? dayCoverage.user.email} covering for ${schedule.user.fullName ?? schedule.user.name ?? schedule.user.email}`
+                          : `${schedule.user.fullName ?? schedule.user.name ?? schedule.user.email}${schedule.isOverride ? " (override)" : ""}${schedule.isSelfAssigned ? " (volunteered)" : ""}`
+                      }
                     >
-                      {schedule.isSelfAssigned && (
+                      {dayCoverage ? (
+                        <ArrowLeftRight className="inline h-2.5 w-2.5 mr-0.5" />
+                      ) : schedule.isSelfAssigned ? (
                         <Hand className="inline h-2.5 w-2.5 mr-0.5" />
-                      )}
-                      {(schedule.user.fullName ?? schedule.user.name)?.split(" ")[0] ?? schedule.user.email?.split("@")[0]}
-                      {schedule.isOverride && " *"}
+                      ) : null}
+                      {(effectiveUser.fullName ?? effectiveUser.name)?.split(" ")[0] ??
+                        effectiveUser.email?.split("@")[0]}
+                      {!dayCoverage && schedule.isOverride && " *"}
                     </div>
                   )}
 
@@ -330,7 +366,11 @@ export function ScheduleMonthCalendar({ openWeeks, currentUserId }: Props) {
         {engineerColorMap.size > 0 && (
           <div className="mt-4 flex flex-wrap gap-2">
             {Array.from(engineerColorMap.entries()).map(([userId, colorIdx]) => {
-              const engineer = schedules.find((s) => s.user.id === userId)?.user;
+              const engineer =
+                schedules.find((s) => s.user.id === userId)?.user ??
+                schedules
+                  .flatMap((s) => s.dayCoverages)
+                  .find((dc) => dc.user.id === userId)?.user;
               if (!engineer) return null;
               return (
                 <div
@@ -347,6 +387,10 @@ export function ScheduleMonthCalendar({ openWeeks, currentUserId }: Props) {
             <div className="inline-flex items-center gap-1 rounded border border-dashed border-muted-foreground/40 px-2 py-0.5 text-xs text-muted-foreground">
               <Hand className="h-3 w-3" />
               Self-assigned
+            </div>
+            <div className="inline-flex items-center gap-1 rounded border border-dashed border-muted-foreground/40 px-2 py-0.5 text-xs text-muted-foreground">
+              <ArrowLeftRight className="h-3 w-3" />
+              Day coverage (swap)
             </div>
           </div>
         )}

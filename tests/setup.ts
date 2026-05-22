@@ -21,10 +21,18 @@ export const mockPrisma = {
   schedule: createMockModel(),
   callLog: createMockModel(),
   swapRequest: createMockModel(),
+  swapPost: createMockModel(),
+  dayCoverage: createMockModel(),
   ptoCompensation: createMockModel(),
   compensationRule: createMockModel(),
   slackConfig: createMockModel(),
   holiday: createMockModel(),
+  $transaction: vi.fn(async (fn: any) => {
+    if (typeof fn === "function") {
+      return fn(mockPrisma);
+    }
+    return fn;
+  }),
 };
 
 vi.mock("@/lib/prisma", () => ({
@@ -48,6 +56,8 @@ export const mockSlack = {
   sendSlackNotification: vi.fn().mockResolvedValue(undefined),
   notifyRotationReminder: vi.fn().mockResolvedValue(undefined),
   notifySwapRequest: vi.fn().mockResolvedValue(undefined),
+  notifySwapPost: vi.fn().mockResolvedValue(undefined),
+  notifySwapClaimed: vi.fn().mockResolvedValue(undefined),
   notifyVolunteer: vi.fn().mockResolvedValue(undefined),
   notifyHighSeverityCall: vi.fn().mockResolvedValue(undefined),
 };

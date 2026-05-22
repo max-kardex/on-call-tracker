@@ -98,7 +98,8 @@ describe("Permission helper functions", () => {
   let canManageSchedule: typeof import("@/lib/auth-guard").canManageSchedule;
   let canSelfAssign: typeof import("@/lib/auth-guard").canSelfAssign;
   let canCreateSwap: typeof import("@/lib/auth-guard").canCreateSwap;
-  let canApproveSwap: typeof import("@/lib/auth-guard").canApproveSwap;
+  let canClaimSwap: typeof import("@/lib/auth-guard").canClaimSwap;
+  let canCancelSwap: typeof import("@/lib/auth-guard").canCancelSwap;
   let canManageUsers: typeof import("@/lib/auth-guard").canManageUsers;
   let canManageSettings: typeof import("@/lib/auth-guard").canManageSettings;
 
@@ -110,7 +111,8 @@ describe("Permission helper functions", () => {
     canManageSchedule = mod.canManageSchedule;
     canSelfAssign = mod.canSelfAssign;
     canCreateSwap = mod.canCreateSwap;
-    canApproveSwap = mod.canApproveSwap;
+    canClaimSwap = mod.canClaimSwap;
+    canCancelSwap = mod.canCancelSwap;
     canManageUsers = mod.canManageUsers;
     canManageSettings = mod.canManageSettings;
   });
@@ -223,46 +225,69 @@ describe("Permission helper functions", () => {
     });
   });
 
-  describe("canApproveSwap", () => {
-    const swap = { requesterId: "user-A", targetId: "user-B" };
+  describe("canClaimSwap", () => {
+    const post = { posterId: "user-A" };
 
-    it("target user can approve", () => {
+    it("non-poster ENGINEER can claim", () => {
       const session = { user: { id: "user-B", roles: ["ENGINEER"] } } as any;
-      expect(canApproveSwap(session, swap)).toBe(true);
+      expect(canClaimSwap(session, post)).toBe(true);
     });
 
-    it("requester cannot approve own request", () => {
+    it("non-poster ADMIN can claim", () => {
+      const session = { user: { id: "user-B", roles: ["ADMIN"] } } as any;
+      expect(canClaimSwap(session, post)).toBe(true);
+    });
+
+    it("poster cannot claim own post (even as ADMIN)", () => {
       const session = { user: { id: "user-A", roles: ["ADMIN"] } } as any;
-      expect(canApproveSwap(session, swap)).toBe(false);
+      expect(canClaimSwap(session, post)).toBe(false);
     });
 
-    it("requester cannot approve even as MANAGER", () => {
-      const session = { user: { id: "user-A", roles: ["MANAGER"] } } as any;
-      expect(canApproveSwap(session, swap)).toBe(false);
+    it("MANAGER (without ENGINEER) cannot claim", () => {
+      const session = { user: { id: "user-B", roles: ["MANAGER"] } } as any;
+      expect(canClaimSwap(session, post)).toBe(false);
     });
 
-    it("MANAGER (non-target, non-requester) can approve", () => {
-      const session = { user: { id: "user-C", roles: ["MANAGER"] } } as any;
-      expect(canApproveSwap(session, swap)).toBe(true);
+    it("SUPPORT cannot claim", () => {
+      const session = { user: { id: "user-B", roles: ["SUPPORT"] } } as any;
+      expect(canClaimSwap(session, post)).toBe(false);
     });
 
-    it("ADMIN (non-target, non-requester) can approve", () => {
-      const session = { user: { id: "user-C", roles: ["ADMIN"] } } as any;
-      expect(canApproveSwap(session, swap)).toBe(true);
+    it("null session cannot claim", () => {
+      expect(canClaimSwap(null, post)).toBe(false);
+    });
+  });
+
+  describe("canCancelSwap", () => {
+    const post = { posterId: "user-A" };
+
+    it("poster can cancel own post", () => {
+      const session = { user: { id: "user-A", roles: ["ENGINEER"] } } as any;
+      expect(canCancelSwap(session, post)).toBe(true);
     });
 
-    it("random ENGINEER (non-target) cannot approve", () => {
-      const session = { user: { id: "user-C", roles: ["ENGINEER"] } } as any;
-      expect(canApproveSwap(session, swap)).toBe(false);
+    it("MANAGER (non-poster) can cancel", () => {
+      const session = { user: { id: "user-B", roles: ["MANAGER"] } } as any;
+      expect(canCancelSwap(session, post)).toBe(true);
     });
 
-    it("SUPPORT cannot approve", () => {
-      const session = { user: { id: "user-C", roles: ["SUPPORT"] } } as any;
-      expect(canApproveSwap(session, swap)).toBe(false);
+    it("ADMIN (non-poster) can cancel", () => {
+      const session = { user: { id: "user-B", roles: ["ADMIN"] } } as any;
+      expect(canCancelSwap(session, post)).toBe(true);
     });
 
-    it("null session cannot approve", () => {
-      expect(canApproveSwap(null, swap)).toBe(false);
+    it("non-poster ENGINEER cannot cancel", () => {
+      const session = { user: { id: "user-B", roles: ["ENGINEER"] } } as any;
+      expect(canCancelSwap(session, post)).toBe(false);
+    });
+
+    it("SUPPORT cannot cancel", () => {
+      const session = { user: { id: "user-B", roles: ["SUPPORT"] } } as any;
+      expect(canCancelSwap(session, post)).toBe(false);
+    });
+
+    it("null session cannot cancel", () => {
+      expect(canCancelSwap(null, post)).toBe(false);
     });
   });
 

@@ -1,107 +1,136 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { format } from "date-fns";
+import { startOfWeek } from "date-fns";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Plus } from "lucide-react";
-import { SwapActions } from "./swap-actions";
+import { SwapPostCard } from "./swap-post-card";
 
 export const dynamic = "force-dynamic";
 
 export default async function SwapsPage() {
   const session = await auth();
+  const currentUserId = session?.user?.id ?? "";
+  const weekStart = startOfWeek(new Date(), { weekStartsOn: 1 });
 
-  const swaps = await prisma.swapRequest.findMany({
-    include: {
-      requester: { select: { id: true, name: true, fullName: true, email: true, image: true } },
-      target: { select: { id: true, name: true, fullName: true, email: true, image: true } },
-    },
-    orderBy: { createdAt: "desc" },
-  });
+  const [posts, mySchedules] = await Promise.all([
+    prisma.swapPost.findMany({
+      include: {
+        poster: { select: { id: true, name: true, fullName: true, email: true, image: true } },
+        claimer: { select: { id: true, name: true, fullName: true, email: true, image: true } },
+      },
+      orderBy: { createdAt: "desc" },
+    }),
+    currentUserId
+      ? prisma.schedule.findMany({
+          where: { userId: currentUserId, weekStart: { gte: weekStart } },
+          orderBy: { weekStart: "asc" },
+          take: 24,
+          select: { id: true, weekStart: true, weekEnd: true },
+        })
+      : Promise.resolve([]),
+  ]);
 
-  function getStatusVariant(status: string) {
-    switch (status) {
-      case "PENDING": return "default" as const;
-      case "APPROVED": return "secondary" as const;
-      case "REJECTED": return "destructive" as const;
-      case "CANCELLED": return "outline" as const;
-      default: return "outline" as const;
-    }
+  const mySchedulesSerialized = mySchedules.map((s) => ({
+    id: s.id,
+    weekStart: s.weekStart.toISOString(),
+    weekEnd: s.weekEnd.toISOString(),
+  }));
+
+  const openPosts = posts.filter((p) => p.status === "OPEN");
+  const historyPosts = posts.filter((p) => p.status !== "OPEN");
+
+  function serializePost(p: typeof posts[number]) {
+    return {
+      id: p.id,
+      status: p.status,
+      postType: p.postType,
+      coverageType: p.coverageType,
+      weekStart: p.weekStart.toISOString(),
+      specificDays: p.specificDays.map((d) => d.toISOString()),
+      offeredWeekStart: p.offeredWeekStart?.toISOString() ?? null,
+      offeredDays: p.offeredDays.map((d) => d.toISOString()),
+      reason: p.reason,
+      claimedAt: p.claimedAt?.toISOString() ?? null,
+      cancelledAt: p.cancelledAt?.toISOString() ?? null,
+      createdAt: p.createdAt.toISOString(),
+      poster: p.poster,
+      claimer: p.claimer,
+    };
   }
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-heading font-bold">Swap Requests</h1>
+          <h1 className="text-3xl font-heading font-bold">Swap Bulletin Board</h1>
           <p className="text-muted-foreground">
-            Manage on-call rotation swaps between engineers
+            Post weeks or days you need covered, or claim posts from others.
           </p>
         </div>
         <Link href="/swaps/new">
           <Button>
             <Plus className="h-4 w-4 mr-2" />
-            Request Swap
+            New Post
           </Button>
         </Link>
       </div>
 
-      {swaps.length === 0 ? (
-        <Card>
-          <CardContent className="py-8 text-center">
-            <p className="text-muted-foreground">
-              No swap requests yet.{" "}
-              <Link href="/swaps/new" className="text-primary hover:underline">
-                Create one
-              </Link>
-            </p>
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="grid gap-4">
-          {swaps.map((swap) => (
-            <Card key={swap.id}>
-              <CardContent className="flex items-center gap-4 py-4">
-                <div className="flex-1 space-y-1">
-                  <div className="flex items-center gap-2">
-                    <p className="font-medium">
-                      {swap.requester.fullName ?? swap.requester.name ?? swap.requester.email}
-                    </p>
-                    <span className="text-muted-foreground">wants to swap with</span>
-                    <p className="font-medium">
-                      {swap.target.fullName ?? swap.target.name ?? swap.target.email}
-                    </p>
-                  </div>
-                  <p className="text-sm text-muted-foreground">
-                    {swap.swapType === "FULL_WEEK" ? "Full week" : "Specific days"} &middot;
-                    Week of {format(swap.originalWeekStart, "MMM d, yyyy")}
-                    {swap.reason && ` — "${swap.reason}"`}
-                  </p>
-                  {swap.responseNote && (
-                    <p className="text-sm text-muted-foreground italic">
-                      Response: {swap.responseNote}
-                    </p>
-                  )}
-                </div>
+      <Tabs defaultValue="open" className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="open">Open ({openPosts.length})</TabsTrigger>
+          <TabsTrigger value="history">History ({historyPosts.length})</TabsTrigger>
+        </TabsList>
 
-                <Badge variant={getStatusVariant(swap.status)}>
-                  {swap.status}
-                </Badge>
-
-                {swap.status === "PENDING" && (
-                  <SwapActions
-                    swapId={swap.id}
-                    isRequester={swap.requesterId === session?.user?.id}
-                    isTarget={swap.targetId === session?.user?.id}
-                  />
-                )}
+        <TabsContent value="open" className="space-y-4">
+          {openPosts.length === 0 ? (
+            <Card>
+              <CardContent className="py-8 text-center">
+                <p className="text-muted-foreground">
+                  No open posts.{" "}
+                  <Link href="/swaps/new" className="text-primary hover:underline">
+                    Create one
+                  </Link>
+                </p>
               </CardContent>
             </Card>
-          ))}
-        </div>
-      )}
+          ) : (
+            <div className="grid gap-4">
+              {openPosts.map((p) => (
+                <SwapPostCard
+                  key={p.id}
+                  post={serializePost(p)}
+                  currentUserId={currentUserId}
+                  mySchedules={mySchedulesSerialized}
+                />
+              ))}
+            </div>
+          )}
+        </TabsContent>
+
+        <TabsContent value="history" className="space-y-4">
+          {historyPosts.length === 0 ? (
+            <Card>
+              <CardContent className="py-8 text-center">
+                <p className="text-muted-foreground">No past posts yet.</p>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="grid gap-4">
+              {historyPosts.map((p) => (
+                <SwapPostCard
+                  key={p.id}
+                  post={serializePost(p)}
+                  currentUserId={currentUserId}
+                  mySchedules={mySchedulesSerialized}
+                />
+              ))}
+            </div>
+          )}
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

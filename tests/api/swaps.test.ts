@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect } from "vitest";
 import { NextRequest } from "next/server";
 import { GET, POST } from "@/app/api/swaps/route";
 import { mockPrisma, mockSession, mockNoSession, mockSlack } from "../setup";
@@ -11,12 +11,19 @@ describe("GET /api/swaps", () => {
     expect(res.status).toBe(401);
   });
 
-  it("returns all swap requests unfiltered", async () => {
+  it("returns all swap posts unfiltered", async () => {
     mockSession();
-    const swaps = [
-      { id: "sw1", status: "PENDING", requester: { id: "u1" }, target: { id: "u2" } },
+    const posts = [
+      {
+        id: "sw1",
+        status: "OPEN",
+        postType: "GIVE_AWAY",
+        coverageType: "FULL_WEEK",
+        poster: { id: "u1" },
+        claimer: null,
+      },
     ];
-    mockPrisma.swapRequest.findMany.mockResolvedValue(swaps);
+    mockPrisma.swapPost.findMany.mockResolvedValue(posts);
 
     const req = new NextRequest("http://localhost/api/swaps");
     const res = await GET(req);
@@ -28,29 +35,29 @@ describe("GET /api/swaps", () => {
 
   it("filters by status", async () => {
     mockSession();
-    mockPrisma.swapRequest.findMany.mockResolvedValue([]);
+    mockPrisma.swapPost.findMany.mockResolvedValue([]);
 
-    const req = new NextRequest("http://localhost/api/swaps?status=PENDING");
+    const req = new NextRequest("http://localhost/api/swaps?status=OPEN");
     await GET(req);
 
-    expect(mockPrisma.swapRequest.findMany).toHaveBeenCalledWith(
+    expect(mockPrisma.swapPost.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: expect.objectContaining({ status: "PENDING" }),
+        where: expect.objectContaining({ status: "OPEN" }),
       })
     );
   });
 
-  it("filters by userId (OR condition for requester/target)", async () => {
+  it("filters by userId (OR condition for poster/claimer)", async () => {
     mockSession();
-    mockPrisma.swapRequest.findMany.mockResolvedValue([]);
+    mockPrisma.swapPost.findMany.mockResolvedValue([]);
 
     const req = new NextRequest("http://localhost/api/swaps?userId=user-1");
     await GET(req);
 
-    expect(mockPrisma.swapRequest.findMany).toHaveBeenCalledWith(
+    expect(mockPrisma.swapPost.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({
-          OR: [{ requesterId: "user-1" }, { targetId: "user-1" }],
+          OR: [{ posterId: "user-1" }, { claimerId: "user-1" }],
         }),
       })
     );
@@ -63,9 +70,9 @@ describe("POST /api/swaps", () => {
     const req = new NextRequest("http://localhost/api/swaps", {
       method: "POST",
       body: JSON.stringify({
-        targetId: "u2",
-        swapType: "FULL_WEEK",
-        originalWeekStart: "2026-06-01",
+        postType: "GIVE_AWAY",
+        coverageType: "FULL_WEEK",
+        weekStart: "2026-06-01",
       }),
     });
     const res = await POST(req);
@@ -76,7 +83,7 @@ describe("POST /api/swaps", () => {
     mockSession();
     const req = new NextRequest("http://localhost/api/swaps", {
       method: "POST",
-      body: JSON.stringify({ targetId: "u2" }),
+      body: JSON.stringify({ postType: "GIVE_AWAY" }),
     });
     const res = await POST(req);
     expect(res.status).toBe(400);
@@ -84,99 +91,136 @@ describe("POST /api/swaps", () => {
     expect(data.error).toContain("Missing required fields");
   });
 
-  it("returns 400 when trying to swap with self", async () => {
-    mockSession({ id: "user-1" });
+  it("returns 400 for invalid postType", async () => {
+    mockSession();
     const req = new NextRequest("http://localhost/api/swaps", {
       method: "POST",
       body: JSON.stringify({
-        targetId: "user-1",
-        swapType: "FULL_WEEK",
-        originalWeekStart: "2026-06-01",
+        postType: "BOGUS",
+        coverageType: "FULL_WEEK",
+        weekStart: "2026-06-01",
+      }),
+    });
+    const res = await POST(req);
+    expect(res.status).toBe(400);
+  });
+
+  it("returns 400 when poster has no schedule for the week", async () => {
+    mockSession({ id: "user-1" });
+    mockPrisma.schedule.findFirst.mockResolvedValue(null);
+
+    const req = new NextRequest("http://localhost/api/swaps", {
+      method: "POST",
+      body: JSON.stringify({
+        postType: "GIVE_AWAY",
+        coverageType: "FULL_WEEK",
+        weekStart: "2026-06-01",
       }),
     });
     const res = await POST(req);
     expect(res.status).toBe(400);
     const data = await res.json();
-    expect(data.error).toContain("Cannot swap with yourself");
+    expect(data.error).toContain("scheduled week");
   });
 
-  it("creates swap request and returns 201", async () => {
+  it("creates swap post and returns 201", async () => {
     mockSession({ id: "user-1", name: "Alice" });
-    mockPrisma.swapRequest.create.mockResolvedValue({
+    mockPrisma.schedule.findFirst.mockResolvedValue({
+      id: "sched-1",
+      userId: "user-1",
+    });
+    mockPrisma.swapPost.create.mockResolvedValue({
       id: "sw1",
-      requesterId: "user-1",
-      targetId: "user-2",
-      swapType: "FULL_WEEK",
-      status: "PENDING",
-      requester: { id: "user-1", name: "Alice", email: "a@test.com" },
-      target: { id: "user-2", name: "Bob", email: "b@test.com" },
+      posterId: "user-1",
+      postType: "GIVE_AWAY",
+      coverageType: "FULL_WEEK",
+      status: "OPEN",
+      poster: { id: "user-1", name: "Alice", fullName: "Alice A", email: "a@test.com" },
     });
 
     const req = new NextRequest("http://localhost/api/swaps", {
       method: "POST",
       body: JSON.stringify({
-        targetId: "user-2",
-        swapType: "FULL_WEEK",
-        originalWeekStart: "2026-06-01",
+        postType: "GIVE_AWAY",
+        coverageType: "FULL_WEEK",
+        weekStart: "2026-06-01",
         reason: "Vacation",
+      }),
+    });
+    const res = await POST(req);
+    expect(res.status).toBe(201);
+  });
+
+  it("sends Slack notification on post creation", async () => {
+    mockSession({ id: "user-1", name: "Alice" });
+    mockPrisma.schedule.findFirst.mockResolvedValue({ id: "sched-1", userId: "user-1" });
+    mockPrisma.swapPost.create.mockResolvedValue({
+      id: "sw1",
+      poster: { id: "user-1", name: "Alice", fullName: "Alice A", email: "a@test.com" },
+    });
+
+    const req = new NextRequest("http://localhost/api/swaps", {
+      method: "POST",
+      body: JSON.stringify({
+        postType: "SWAP",
+        coverageType: "FULL_WEEK",
+        weekStart: "2026-06-01",
+      }),
+    });
+    await POST(req);
+
+    expect(mockSlack.notifySwapPost).toHaveBeenCalledWith(
+      "Alice A",
+      expect.any(String),
+      "SWAP",
+      "FULL_WEEK",
+      undefined
+    );
+  });
+
+  it("handles SPECIFIC_DAYS coverage", async () => {
+    mockSession({ id: "user-1" });
+    mockPrisma.schedule.findFirst.mockResolvedValue({ id: "sched-1", userId: "user-1" });
+    mockPrisma.swapPost.create.mockResolvedValue({
+      id: "sw1",
+      poster: { id: "user-1", name: "Alice", fullName: "Alice A", email: "a@test.com" },
+    });
+
+    const req = new NextRequest("http://localhost/api/swaps", {
+      method: "POST",
+      body: JSON.stringify({
+        postType: "GIVE_AWAY",
+        coverageType: "SPECIFIC_DAYS",
+        weekStart: "2026-06-01",
+        specificDays: ["2026-06-02", "2026-06-03"],
       }),
     });
     const res = await POST(req);
 
     expect(res.status).toBe(201);
-  });
-
-  it("sends Slack notification on swap creation", async () => {
-    mockSession({ id: "user-1", name: "Alice" });
-    mockPrisma.swapRequest.create.mockResolvedValue({
-      id: "sw1",
-      requester: { id: "user-1", name: "Alice", email: "a@test.com" },
-      target: { id: "user-2", name: "Bob", email: "b@test.com" },
-    });
-
-    const req = new NextRequest("http://localhost/api/swaps", {
-      method: "POST",
-      body: JSON.stringify({
-        targetId: "user-2",
-        swapType: "FULL_WEEK",
-        originalWeekStart: "2026-06-01",
-      }),
-    });
-    await POST(req);
-
-    expect(mockSlack.notifySwapRequest).toHaveBeenCalledWith(
-      "Alice",
-      "Bob",
-      expect.any(String)
-    );
-  });
-
-  it("handles specificDays for SPECIFIC_DAYS swap type", async () => {
-    mockSession({ id: "user-1" });
-    mockPrisma.swapRequest.create.mockResolvedValue({
-      id: "sw1",
-      requester: { id: "user-1", name: "Alice", email: "a@test.com" },
-      target: { id: "user-2", name: "Bob", email: "b@test.com" },
-    });
-
-    const req = new NextRequest("http://localhost/api/swaps", {
-      method: "POST",
-      body: JSON.stringify({
-        targetId: "user-2",
-        swapType: "SPECIFIC_DAYS",
-        originalWeekStart: "2026-06-01",
-        specificDays: ["2026-06-02", "2026-06-03"],
-      }),
-    });
-    await POST(req);
-
-    expect(mockPrisma.swapRequest.create).toHaveBeenCalledWith(
+    expect(mockPrisma.swapPost.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
-          swapType: "SPECIFIC_DAYS",
+          coverageType: "SPECIFIC_DAYS",
           specificDays: expect.arrayContaining([expect.any(Date)]),
         }),
       })
     );
+  });
+
+  it("returns 400 for SPECIFIC_DAYS missing days array", async () => {
+    mockSession({ id: "user-1" });
+    mockPrisma.schedule.findFirst.mockResolvedValue({ id: "sched-1", userId: "user-1" });
+
+    const req = new NextRequest("http://localhost/api/swaps", {
+      method: "POST",
+      body: JSON.stringify({
+        postType: "GIVE_AWAY",
+        coverageType: "SPECIFIC_DAYS",
+        weekStart: "2026-06-01",
+      }),
+    });
+    const res = await POST(req);
+    expect(res.status).toBe(400);
   });
 });

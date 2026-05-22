@@ -28,8 +28,9 @@ model User {
   // On-call relations
   schedules         Schedule[]
   callLogs          CallLog[]
-  swapRequestsFrom  SwapRequest[] @relation("SwapRequester")
-  swapRequestsTo    SwapRequest[] @relation("SwapTarget")
+  swapPostsCreated  SwapPost[] @relation("SwapPoster")
+  swapPostsClaimed  SwapPost[] @relation("SwapClaimer")
+  dayCoverages      DayCoverage[]
   ptoCompensations  PtoCompensation[]
 }
 
@@ -93,13 +94,17 @@ enum Severity {
 }
 
 enum SwapStatus {
-  PENDING
-  APPROVED
-  REJECTED
+  OPEN
+  CLAIMED
   CANCELLED
 }
 
-enum SwapType {
+enum SwapPostType {
+  GIVE_AWAY
+  SWAP
+}
+
+enum CoverageType {
   FULL_WEEK
   SPECIFIC_DAYS
 }
@@ -118,6 +123,7 @@ model Schedule {
 
   user     User      @relation(fields: [userId], references: [id])
   callLogs CallLog[]
+  dayCoverages DayCoverage[]
 
   @@unique([userId, weekStart])
   @@index([weekStart])
@@ -147,27 +153,51 @@ model CallLog {
   @@index([startTime])
 }
 
-// Swap request between two engineers
-model SwapRequest {
-  id              String     @id @default(cuid())
-  requesterId     String
-  targetId        String
-  status          SwapStatus @default(PENDING)
-  swapType        SwapType
-  originalWeekStart DateTime
-  specificDays    DateTime[]
-  reason          String?
-  responseNote    String?
-  respondedAt     DateTime?
-  createdAt       DateTime   @default(now())
-  updatedAt       DateTime   @updatedAt
+// Swap board post: an engineer offers up a week or specific days
+// for someone else to take (give away) or trade (swap)
+model SwapPost {
+  id               String       @id @default(cuid())
+  posterId         String
+  claimerId        String?
+  status           SwapStatus   @default(OPEN)
+  postType         SwapPostType // GIVE_AWAY | SWAP
+  coverageType     CoverageType // FULL_WEEK | SPECIFIC_DAYS
+  weekStart        DateTime     // Monday of the poster's week
+  specificDays     DateTime[]   // For SPECIFIC_DAYS coverage: which days within the week
+  offeredWeekStart DateTime?    // For SWAP claims: claimer's offered week
+  offeredDays      DateTime[]   // For SWAP + SPECIFIC_DAYS claims: claimer's offered days
+  reason           String?
+  claimedAt        DateTime?
+  cancelledAt      DateTime?
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
 
-  requester User @relation("SwapRequester", fields: [requesterId], references: [id])
-  target    User @relation("SwapTarget", fields: [targetId], references: [id])
+  poster       User          @relation("SwapPoster", fields: [posterId], references: [id])
+  claimer      User?         @relation("SwapClaimer", fields: [claimerId], references: [id])
+  dayCoverages DayCoverage[]
 
-  @@index([requesterId])
-  @@index([targetId])
+  @@index([posterId])
+  @@index([claimerId])
   @@index([status])
+  @@index([weekStart])
+}
+
+// Day-level coverage override (created when specific-days swaps are claimed)
+model DayCoverage {
+  id         String   @id @default(cuid())
+  date       DateTime // The specific day being covered
+  userId     String   // Who is covering this day
+  scheduleId String   // Which Schedule entry this overrides
+  swapPostId String   // The SwapPost that produced this coverage
+  createdAt  DateTime @default(now())
+
+  user     User     @relation(fields: [userId], references: [id])
+  schedule Schedule @relation(fields: [scheduleId], references: [id])
+  swapPost SwapPost @relation(fields: [swapPostId], references: [id], onDelete: Cascade)
+
+  @@index([scheduleId])
+  @@index([userId])
+  @@index([date])
 }
 
 // PTO compensation records

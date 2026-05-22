@@ -8,7 +8,8 @@ vi.unmock("@/lib/slack");
 describe("slack", () => {
   let sendSlackNotification: typeof import("@/lib/slack").sendSlackNotification;
   let notifyRotationReminder: typeof import("@/lib/slack").notifyRotationReminder;
-  let notifySwapRequest: typeof import("@/lib/slack").notifySwapRequest;
+  let notifySwapPost: typeof import("@/lib/slack").notifySwapPost;
+  let notifySwapClaimed: typeof import("@/lib/slack").notifySwapClaimed;
   let notifyVolunteer: typeof import("@/lib/slack").notifyVolunteer;
   let notifyHighSeverityCall: typeof import("@/lib/slack").notifyHighSeverityCall;
 
@@ -17,7 +18,8 @@ describe("slack", () => {
     const slack = await import("@/lib/slack");
     sendSlackNotification = slack.sendSlackNotification;
     notifyRotationReminder = slack.notifyRotationReminder;
-    notifySwapRequest = slack.notifySwapRequest;
+    notifySwapPost = slack.notifySwapPost;
+    notifySwapClaimed = slack.notifySwapClaimed;
     notifyVolunteer = slack.notifyVolunteer;
     notifyHighSeverityCall = slack.notifyHighSeverityCall;
   });
@@ -94,17 +96,16 @@ describe("slack", () => {
     });
   });
 
-  describe("notifySwapRequest", () => {
+  describe("notifySwapPost", () => {
     it("skips if no config with notifyOnSwap enabled", async () => {
       mockPrisma.slackConfig.findFirst.mockResolvedValue(null);
 
-      await notifySwapRequest("Alice", "Bob", "2026-06-01");
+      await notifySwapPost("Alice", "2026-06-01", "GIVE_AWAY", "FULL_WEEK");
 
       expect(mockFetch).not.toHaveBeenCalled();
     });
 
-    it("sends swap request notification when configured", async () => {
-      // First call is for notifySwapRequest's own findFirst (notifyOnSwap check)
+    it("sends swap post notification when configured", async () => {
       mockPrisma.slackConfig.findFirst.mockResolvedValue({
         id: "config-1",
         webhookUrl: "https://hooks.slack.com/test",
@@ -112,12 +113,29 @@ describe("slack", () => {
         notifyOnSwap: true,
       });
 
-      await notifySwapRequest("Alice", "Bob", "2026-06-01");
+      await notifySwapPost("Alice", "2026-06-01", "GIVE_AWAY", "FULL_WEEK");
 
       expect(mockFetch).toHaveBeenCalled();
       const body = JSON.parse(mockFetch.mock.calls[0][1].body);
       expect(body.text).toContain("Alice");
+    });
+  });
+
+  describe("notifySwapClaimed", () => {
+    it("sends claim notification when configured", async () => {
+      mockPrisma.slackConfig.findFirst.mockResolvedValue({
+        id: "config-1",
+        webhookUrl: "https://hooks.slack.com/test",
+        isActive: true,
+        notifyOnSwap: true,
+      });
+
+      await notifySwapClaimed("Bob", "Alice", "2026-06-01", "GIVE_AWAY");
+
+      expect(mockFetch).toHaveBeenCalled();
+      const body = JSON.parse(mockFetch.mock.calls[0][1].body);
       expect(body.text).toContain("Bob");
+      expect(body.text).toContain("Alice");
     });
   });
 

@@ -45,24 +45,59 @@ export async function notifyRotationReminder(engineerName: string, weekStart: st
   });
 }
 
-export async function notifySwapRequest(
-  requesterName: string,
-  targetName: string,
-  weekStart: string
+export async function notifySwapPost(
+  posterName: string,
+  weekStart: string,
+  postType: "GIVE_AWAY" | "SWAP",
+  coverageType: "FULL_WEEK" | "SPECIFIC_DAYS",
+  daysDescription?: string
 ) {
   const config = await prisma.slackConfig.findFirst({
     where: { isActive: true, notifyOnSwap: true },
   });
   if (!config) return;
 
+  const action = postType === "GIVE_AWAY" ? "is giving away" : "wants to swap";
+  const coverage =
+    coverageType === "FULL_WEEK"
+      ? `the week of *${weekStart}*`
+      : `${daysDescription} (week of ${weekStart})`;
+
   await sendSlackNotification({
-    text: `Swap Request: ${requesterName} wants to swap on-call with ${targetName} for week of ${weekStart}`,
+    text: `Swap Board: ${posterName} ${action} ${coverage}`,
     blocks: [
       {
         type: "section",
         text: {
           type: "mrkdwn",
-          text: `*On-Call Swap Request* :arrows_counterclockwise:\n\n*${requesterName}* is requesting to swap on-call with *${targetName}* for the week of *${weekStart}*.\n\nPlease review in the On-Call Tracker.`,
+          text: `*Swap Board Post* :clipboard:\n\n*${posterName}* ${action} ${coverage}.\n\nView the swap board to claim it.`,
+        },
+      },
+    ],
+  });
+}
+
+export async function notifySwapClaimed(
+  claimerName: string,
+  posterName: string,
+  weekStart: string,
+  postType: "GIVE_AWAY" | "SWAP"
+) {
+  const config = await prisma.slackConfig.findFirst({
+    where: { isActive: true, notifyOnSwap: true },
+  });
+  if (!config) return;
+
+  const verb = postType === "GIVE_AWAY" ? "took" : "swapped";
+
+  await sendSlackNotification({
+    text: `Swap Board: ${claimerName} ${verb} ${posterName}'s week of ${weekStart}`,
+    blocks: [
+      {
+        type: "section",
+        text: {
+          type: "mrkdwn",
+          text: `*Swap Claimed* :handshake:\n\n*${claimerName}* ${verb} *${posterName}*'s week of *${weekStart}*.`,
         },
       },
     ],
