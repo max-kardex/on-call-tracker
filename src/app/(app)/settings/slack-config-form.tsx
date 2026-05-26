@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter }
 import { toast } from "sonner";
 import { Save } from "lucide-react";
 import { Spinner } from "@/components/ui/spinner";
+import { api, ApiError } from "@/lib/api-client";
 
 interface SlackConfigData {
   id?: string;
@@ -47,19 +48,10 @@ export function SlackConfigForm({ initialConfig, isAdmin }: Props) {
 
     setLoading(true);
     try {
-      const res = await fetch("/api/settings", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ type: "slack", ...config }),
-      });
-
-      if (res.ok) {
-        toast.success("Slack configuration saved");
-      } else {
-        toast.error("Failed to save configuration");
-      }
-    } catch {
-      toast.error("An error occurred");
+      await api.settings.saveSlack(config);
+      toast.success("Slack configuration saved");
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "An error occurred");
     } finally {
       setLoading(false);
     }

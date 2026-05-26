@@ -16,6 +16,7 @@ import {
 import { toast } from "sonner";
 import { Plus, X, CalendarPlus } from "lucide-react";
 import { Spinner } from "@/components/ui/spinner";
+import { api, ApiError } from "@/lib/api-client";
 
 interface Engineer {
   id: string;
@@ -41,28 +42,16 @@ export function GenerateRotationForm({ engineers }: Props) {
 
     setLoading(true);
     try {
-      const res = await fetch("/api/schedule", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "generate",
-          startDate,
-          weeks: parseInt(weeks),
-          engineerIds: engineers.map((e) => e.id),
-        }),
+      const data = await api.schedule.generate({
+        startDate,
+        weeks: parseInt(weeks),
+        engineerIds: engineers.map((e) => e.id),
       });
-
-      if (res.ok) {
-        const data = await res.json();
-        toast.success(`Generated ${data.count} schedule entries`);
-        setOpen(false);
-        window.location.reload();
-      } else {
-        const error = await res.json();
-        toast.error(error.error || "Failed to generate rotation");
-      }
-    } catch {
-      toast.error("An error occurred");
+      toast.success(`Generated ${data.count} schedule entries`);
+      setOpen(false);
+      window.location.reload();
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "An error occurred");
     } finally {
       setLoading(false);
     }

@@ -17,6 +17,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { toast } from "sonner";
 import { MessageSquare, Phone, MessageCircle, Monitor, ArrowRight, UserCircle } from "lucide-react";
 import { Spinner } from "@/components/ui/spinner";
+import { api, ApiError } from "@/lib/api-client";
 
 const CONTACT_METHODS = [
   { value: "SMS", label: "Text (SMS)", icon: MessageSquare },
@@ -42,26 +43,16 @@ export function OnboardingForm() {
 
     setSaving(true);
     try {
-      const res = await fetch("/api/profile", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          fullName: fullName.trim(),
-          preferredContact,
-          onboarded: true,
-        }),
+      await api.profile.update({
+        fullName: fullName.trim(),
+        preferredContact,
+        onboarded: true,
       });
-
-      if (res.ok) {
-        toast.success("Welcome aboard! Your profile is set up.");
-        router.push("/dashboard");
-        router.refresh();
-      } else {
-        const data = await res.json();
-        toast.error(data.error ?? "Failed to save profile");
-      }
-    } catch {
-      toast.error("An error occurred");
+      toast.success("Welcome aboard! Your profile is set up.");
+      router.push("/dashboard");
+      router.refresh();
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "An error occurred");
     } finally {
       setSaving(false);
     }

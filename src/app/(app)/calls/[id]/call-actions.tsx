@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { MoreHorizontal, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import { api, ApiError } from "@/lib/api-client";
 
 export function CallActions({ callId }: { callId: string }) {
   const router = useRouter();
@@ -18,15 +19,11 @@ export function CallActions({ callId }: { callId: string }) {
     if (!confirm("Are you sure you want to delete this call log?")) return;
 
     try {
-      const res = await fetch(`/api/calls/${callId}`, { method: "DELETE" });
-      if (res.ok) {
-        toast.success("Call log deleted");
-        router.push("/calls");
-      } else {
-        toast.error("Failed to delete call log");
-      }
-    } catch {
-      toast.error("An error occurred");
+      await api.calls.delete(callId);
+      toast.success("Call log deleted");
+      router.push("/calls");
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "An error occurred");
     }
   }
 

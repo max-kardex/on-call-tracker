@@ -23,6 +23,7 @@ import {
 import { toast } from "sonner";
 import { MessageSquare, Phone, MessageCircle, Monitor, Save } from "lucide-react";
 import { Spinner } from "@/components/ui/spinner";
+import { api, ApiError } from "@/lib/api-client";
 
 interface Props {
   open: boolean;
@@ -47,8 +48,8 @@ export function ProfileModal({ open, onOpenChange }: Props) {
   useEffect(() => {
     if (open) {
       setLoading(true);
-      fetch("/api/profile")
-        .then((res) => res.json())
+      api.profile
+        .get()
         .then((data) => {
           if (data.fullName) setFullName(data.fullName);
           if (data.preferredContact) setPreferredContact(data.preferredContact);
@@ -66,24 +67,14 @@ export function ProfileModal({ open, onOpenChange }: Props) {
 
     setSaving(true);
     try {
-      const res = await fetch("/api/profile", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          fullName: fullName.trim(),
-          preferredContact,
-        }),
+      await api.profile.update({
+        fullName: fullName.trim(),
+        preferredContact,
       });
-
-      if (res.ok) {
-        toast.success("Profile updated");
-        onOpenChange(false);
-      } else {
-        const data = await res.json();
-        toast.error(data.error ?? "Failed to update profile");
-      }
-    } catch {
-      toast.error("An error occurred");
+      toast.success("Profile updated");
+      onOpenChange(false);
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "An error occurred");
     } finally {
       setSaving(false);
     }

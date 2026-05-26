@@ -18,6 +18,7 @@ import { toast } from "sonner";
 import { Check, X, UserRoundPen, Trash2, Hand, CalendarPlus, Clock, ArrowRight } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { toDisplayDate } from "@/lib/date-utils";
+import { api, ApiError } from "@/lib/api-client";
 
 interface ScheduleEntry {
   id: string;
@@ -100,22 +101,13 @@ export function ScheduleCalendar({
     if (!editUserId) return;
 
     try {
-      const res = await fetch("/api/schedule", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: scheduleId, userId: editUserId }),
-      });
-
-      if (res.ok) {
-        toast.success("Schedule updated successfully");
-        setEditingId(null);
-        setEditUserId("");
-        router.refresh();
-      } else {
-        toast.error("Failed to update schedule");
-      }
-    } catch {
-      toast.error("An error occurred");
+      await api.schedule.reassign(scheduleId, editUserId);
+      toast.success("Schedule updated successfully");
+      setEditingId(null);
+      setEditUserId("");
+      router.refresh();
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "An error occurred");
     }
   }
 
@@ -123,39 +115,22 @@ export function ScheduleCalendar({
     if (!confirm("Are you sure you want to delete this schedule entry?")) return;
 
     try {
-      const res = await fetch(`/api/schedule?id=${scheduleId}`, {
-        method: "DELETE",
-      });
-
-      if (res.ok) {
-        toast.success("Schedule entry deleted");
-        router.refresh();
-      } else {
-        toast.error("Failed to delete schedule entry");
-      }
-    } catch {
-      toast.error("An error occurred");
+      await api.schedule.delete(scheduleId);
+      toast.success("Schedule entry deleted");
+      router.refresh();
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "An error occurred");
     }
   }
 
   async function handleSelfAssign(weekStart: string) {
     setLoadingWeek(weekStart);
     try {
-      const res = await fetch("/api/schedule", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "self-assign", weekStart }),
-      });
-
-      if (res.ok) {
-        toast.success("You've taken this on-call week!");
-        router.refresh();
-      } else {
-        const data = await res.json();
-        toast.error(data.error || "Failed to self-assign");
-      }
-    } catch {
-      toast.error("An error occurred");
+      await api.schedule.selfAssign(weekStart);
+      toast.success("You've taken this on-call week!");
+      router.refresh();
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "An error occurred");
     } finally {
       setLoadingWeek(null);
     }
@@ -164,19 +139,11 @@ export function ScheduleCalendar({
   async function handleWithdraw(scheduleId: string) {
     setWithdrawingId(scheduleId);
     try {
-      const res = await fetch(`/api/schedule?id=${scheduleId}`, {
-        method: "DELETE",
-      });
-
-      if (res.ok) {
-        toast.success("Withdrawn from on-call week");
-        router.refresh();
-      } else {
-        const data = await res.json();
-        toast.error(data.error || "Failed to withdraw");
-      }
-    } catch {
-      toast.error("An error occurred");
+      await api.schedule.delete(scheduleId);
+      toast.success("Withdrawn from on-call week");
+      router.refresh();
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "An error occurred");
     } finally {
       setWithdrawingId(null);
     }

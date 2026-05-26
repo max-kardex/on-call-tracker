@@ -18,6 +18,7 @@ import { toast } from "sonner";
 import { format, parseISO } from "date-fns";
 import { X, PhoneCall } from "lucide-react";
 import { Spinner } from "@/components/ui/spinner";
+import { api, ApiError } from "@/lib/api-client";
 
 interface Props {
   currentScheduleId: string | null;
@@ -51,29 +52,19 @@ export function NewCallForm({ currentScheduleId, schedules }: Props) {
 
     setLoading(true);
     try {
-      const res = await fetch("/api/calls", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          scheduleId: form.scheduleId,
-          severity: form.severity,
-          title: form.title,
-          description: form.description || undefined,
-          startTime: new Date(form.startTime).toISOString(),
-          endTime: form.endTime ? new Date(form.endTime).toISOString() : undefined,
-          resolution: form.resolution || undefined,
-        }),
+      await api.calls.create({
+        scheduleId: form.scheduleId,
+        severity: form.severity,
+        title: form.title,
+        description: form.description || undefined,
+        startTime: new Date(form.startTime).toISOString(),
+        endTime: form.endTime ? new Date(form.endTime).toISOString() : undefined,
+        resolution: form.resolution || undefined,
       });
-
-      if (res.ok) {
-        toast.success("Call logged successfully");
-        router.push("/calls");
-      } else {
-        const data = await res.json();
-        toast.error(data.error || "Failed to log call");
-      }
-    } catch {
-      toast.error("An error occurred");
+      toast.success("Call logged successfully");
+      router.push("/calls");
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "An error occurred");
     } finally {
       setLoading(false);
     }

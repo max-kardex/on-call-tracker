@@ -15,6 +15,8 @@ import {
 } from "@/components/ui/table";
 import { toast } from "sonner";
 import { Save, UserCheck, UserX } from "lucide-react";
+import { Spinner } from "@/components/ui/spinner";
+import { api, ApiError } from "@/lib/api-client";
 
 const ALL_ROLES = ["ADMIN", "MANAGER", "ENGINEER", "SUPPORT"] as const;
 
@@ -43,6 +45,8 @@ interface Props {
 export function TeamManagement({ users, isAdmin }: Props) {
   const [editingUser, setEditingUser] = useState<string | null>(null);
   const [editRoles, setEditRoles] = useState<string[]>([]);
+  const [savingUserId, setSavingUserId] = useState<string | null>(null);
+  const [togglingUserId, setTogglingUserId] = useState<string | null>(null);
 
   function startEditing(user: User) {
     setEditingUser(user.id);
@@ -65,40 +69,29 @@ export function TeamManagement({ users, isAdmin }: Props) {
       toast.error("User must have at least one role");
       return;
     }
+    setSavingUserId(userId);
     try {
-      const res = await fetch("/api/users", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: userId, roles: editRoles }),
-      });
-      if (res.ok) {
-        toast.success("Roles updated successfully");
-        setEditingUser(null);
-        window.location.reload();
-      } else {
-        const data = await res.json();
-        toast.error(data.error || "Failed to update roles");
-      }
-    } catch {
-      toast.error("An error occurred");
+      await api.users.updateRoles(userId, editRoles);
+      toast.success("Roles updated successfully");
+      setEditingUser(null);
+      window.location.reload();
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "An error occurred");
+    } finally {
+      setSavingUserId(null);
     }
   }
 
   async function toggleActive(userId: string, currentActive: boolean) {
+    setTogglingUserId(userId);
     try {
-      const res = await fetch("/api/users", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: userId, isActive: !currentActive }),
-      });
-      if (res.ok) {
-        toast.success(`User ${!currentActive ? "activated" : "deactivated"}`);
-        window.location.reload();
-      } else {
-        toast.error("Failed to update user");
-      }
-    } catch {
-      toast.error("An error occurred");
+      await api.users.toggleActive(userId, !currentActive);
+      toast.success(`User ${!currentActive ? "activated" : "deactivated"}`);
+      window.location.reload();
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "An error occurred");
+    } finally {
+      setTogglingUserId(null);
     }
   }
 
@@ -173,9 +166,9 @@ export function TeamManagement({ users, isAdmin }: Props) {
                       <div className="flex items-center gap-2">
                         {isEditing ? (
                           <>
-                            <Button size="sm" onClick={() => saveRoles(user.id)}>
-                              <Save className="h-4 w-4" />
-                              Save
+                            <Button size="sm" onClick={() => saveRoles(user.id)} disabled={savingUserId === user.id}>
+                              {savingUserId === user.id ? <Spinner /> : <Save className="h-4 w-4" />}
+                              {savingUserId === user.id ? "Saving..." : "Save"}
                             </Button>
                             <Button size="sm" variant="ghost" onClick={cancelEditing}>
                               Cancel
@@ -194,9 +187,18 @@ export function TeamManagement({ users, isAdmin }: Props) {
                               size="sm"
                               variant={user.isActive ? "ghost" : "outline"}
                               onClick={() => toggleActive(user.id, user.isActive)}
+                              disabled={togglingUserId === user.id}
                             >
-                              {user.isActive ? <UserX className="h-4 w-4" /> : <UserCheck className="h-4 w-4" />}
-                              {user.isActive ? "Deactivate" : "Activate"}
+                              {togglingUserId === user.id ? (
+                                <Spinner />
+                              ) : user.isActive ? (
+                                <UserX className="h-4 w-4" />
+                              ) : (
+                                <UserCheck className="h-4 w-4" />
+                              )}
+                              {togglingUserId === user.id
+                                ? user.isActive ? "Deactivating..." : "Activating..."
+                                : user.isActive ? "Deactivate" : "Activate"}
                             </Button>
                           </>
                         )}

@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { Hand, X, ArrowLeftRight, Gift } from "lucide-react";
 import { ClaimDialog } from "./claim-dialog";
+import { api, ApiError } from "@/lib/api-client";
 
 interface SerializedUser {
   id: string;
@@ -73,20 +74,11 @@ export function SwapPostCard({ post, currentUserId, mySchedules }: Props) {
     if (!confirm("Cancel this swap post?")) return;
     setWorking(true);
     try {
-      const res = await fetch(`/api/swaps/${post.id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "cancel" }),
-      });
-      if (res.ok) {
-        toast.success("Post cancelled");
-        router.refresh();
-      } else {
-        const data = await res.json();
-        toast.error(data.error || "Failed to cancel");
-      }
-    } catch {
-      toast.error("An error occurred");
+      await api.swaps.cancel(post.id);
+      toast.success("Post cancelled");
+      router.refresh();
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "An error occurred");
     } finally {
       setWorking(false);
     }

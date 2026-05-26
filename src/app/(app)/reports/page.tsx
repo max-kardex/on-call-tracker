@@ -17,6 +17,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Download, Calculator, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
+import { api, ApiError } from "@/lib/api-client";
 
 interface CompensationEntry {
   userId: string;
@@ -44,18 +45,11 @@ export default function ReportsPage() {
   async function handleCalculate() {
     setLoading(true);
     try {
-      const res = await fetch(
-        `/api/compensation?action=calculate&periodStart=${periodStart}&periodEnd=${periodEnd}`
-      );
-      if (res.ok) {
-        const result = await res.json();
-        setData(result.compensation);
-        setPeriodCap(result.periodCap);
-      } else {
-        toast.error("Failed to calculate compensation");
-      }
-    } catch {
-      toast.error("An error occurred");
+      const result = await api.compensation.calculate(periodStart, periodEnd);
+      setData(result.compensation as CompensationEntry[]);
+      setPeriodCap(result.periodCap);
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "An error occurred");
     } finally {
       setLoading(false);
     }

@@ -25,6 +25,7 @@ import { toast } from "sonner";
 import { X, Send, Gift, ArrowLeftRight } from "lucide-react";
 import { Spinner } from "@/components/ui/spinner";
 import { cn } from "@/lib/utils";
+import { api, ApiError } from "@/lib/api-client";
 
 interface Props {
   mySchedules: { id: string; weekStart: string; weekEnd: string }[];
@@ -74,28 +75,18 @@ export function NewSwapPostForm({ mySchedules }: Props) {
 
     setLoading(true);
     try {
-      const res = await fetch("/api/swaps", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          postType,
-          coverageType,
-          weekStart,
-          specificDays: coverageType === "SPECIFIC_DAYS" ? specificDays : [],
-          reason: reason || undefined,
-        }),
+      await api.swaps.create({
+        postType,
+        coverageType,
+        weekStart,
+        specificDays: coverageType === "SPECIFIC_DAYS" ? specificDays : [],
+        reason: reason || undefined,
       });
-
-      if (res.ok) {
-        toast.success("Swap post created!");
-        router.push("/swaps");
-        router.refresh();
-      } else {
-        const data = await res.json();
-        toast.error(data.error || "Failed to create post");
-      }
-    } catch {
-      toast.error("An error occurred");
+      toast.success("Swap post created!");
+      router.push("/swaps");
+      router.refresh();
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "An error occurred");
     } finally {
       setLoading(false);
     }

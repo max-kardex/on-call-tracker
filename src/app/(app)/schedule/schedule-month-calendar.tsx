@@ -22,6 +22,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { cn } from "@/lib/utils";
 import { toDisplayDate } from "@/lib/date-utils";
 import { useRouter } from "next/navigation";
+import { api } from "@/lib/api-client";
 
 interface ScheduleUser {
   id: string;
@@ -125,10 +126,7 @@ export function ScheduleMonthCalendar({ openWeeks, currentUserId }: Props) {
     try {
       const from = format(calStart, "yyyy-MM-dd");
       const to = format(calEnd, "yyyy-MM-dd");
-      const res = await fetch(`/api/schedule?from=${from}&to=${to}`);
-      if (!res.ok) throw new Error("Failed to fetch");
-
-      const data = await res.json();
+      const data = await api.schedule.fetch(from, to);
 
       // Only update if this is still the latest fetch
       if (gen !== fetchGeneration.current) return;
@@ -212,17 +210,11 @@ export function ScheduleMonthCalendar({ openWeeks, currentUserId }: Props) {
   async function handleSelfAssign(weekStart: string) {
     setLoadingWeek(weekStart);
     try {
-      const res = await fetch("/api/schedule", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "self-assign", weekStart }),
-      });
-      if (res.ok) {
-        // Invalidate cache so the new assignment shows
-        cache.current.delete(cacheKey);
-        router.refresh();
-        await fetchSchedules();
-      }
+      await api.schedule.selfAssign(weekStart);
+      // Invalidate cache so the new assignment shows
+      cache.current.delete(cacheKey);
+      router.refresh();
+      await fetchSchedules();
     } finally {
       setLoadingWeek(null);
     }

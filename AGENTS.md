@@ -141,6 +141,7 @@ src/
 │   ├── auth.ts                # NextAuth config + GitHub provider
 │   ├── auth-guard.ts          # requireAuth(), requireAdmin()
 │   ├── api-auth.ts            # requireApiAuth() for routes
+│   ├── api-client.ts          # Client-side API abstraction (api.*, ApiError)
 │   ├── prisma.ts              # PrismaClient singleton (PrismaPg adapter)
 │   ├── slack.ts               # Webhook notification helpers
 │   └── utils.ts               # cn() utility
@@ -171,6 +172,21 @@ Dockerfile                     # Multi-stage build
 - All buttons should have lucide icons + text
 - Loading states use `<Spinner />` from `@/components/ui/spinner`
 - Select components need explicit `SelectValue` children for friendly display names
+
+### Client-Side API Calls
+- NEVER use raw `fetch()` in client components for API calls to our backend
+- Import `{ api, ApiError }` from `@/lib/api-client`
+- Use the namespaced functions: `api.schedule.fetch(...)`, `api.calls.create(...)`, etc.
+- When adding a new API endpoint, add a corresponding function to `api-client.ts` and a test in `tests/lib/api-client.test.ts`
+- Error handling pattern:
+  ```ts
+  try {
+    const data = await api.resource.action(params);
+    toast.success("Done");
+  } catch (err) {
+    toast.error(err instanceof ApiError ? err.message : "An error occurred");
+  }
+  ```
 
 ### Environment Variables
 | Variable | Required | Notes |

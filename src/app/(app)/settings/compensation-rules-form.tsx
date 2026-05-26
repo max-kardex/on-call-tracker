@@ -10,6 +10,7 @@ import { toast } from "sonner";
 import { Save, Trash2, Plus, Calendar } from "lucide-react";
 import { Spinner } from "@/components/ui/spinner";
 import { format } from "date-fns";
+import { api, ApiError } from "@/lib/api-client";
 
 interface Rule {
   id?: string;
@@ -65,6 +66,7 @@ export function CompensationRulesForm({ initialRules, isAdmin }: Props) {
   const [newHolidayDate, setNewHolidayDate] = useState("");
   const [newHolidayName, setNewHolidayName] = useState("");
   const [holidayLoading, setHolidayLoading] = useState(false);
+  const [deletingHolidayId, setDeletingHolidayId] = useState<string | null>(null);
 
   useEffect(() => {
     fetchHolidays();
@@ -72,11 +74,8 @@ export function CompensationRulesForm({ initialRules, isAdmin }: Props) {
 
   async function fetchHolidays() {
     try {
-      const res = await fetch(`/api/holidays?year=${holidayYear}`);
-      if (res.ok) {
-        const data = await res.json();
-        setHolidays(data);
-      }
+      const data = await api.holidays.list(holidayYear);
+      setHolidays(data);
     } catch {
       // Silently fail
     }
@@ -85,7 +84,7 @@ export function CompensationRulesForm({ initialRules, isAdmin }: Props) {
   async function handleSaveRules() {
     setLoading(true);
     try {
-      const rules: Rule[] = [
+      const rules = [
         { name: "Weekend Multiplier", description: "Multiplier for Saturday/Sunday calls", ruleType: "weekend_multiplier", value: weekendMult, severity: null, isActive: true },
         { name: "Holiday Multiplier", description: "Multiplier for holiday calls (takes precedence over weekend)", ruleType: "holiday_multiplier", value: holidayMult, severity: null, isActive: true },
         { name: "P1 Multiplier", description: "Multiplier for P1 severity calls", ruleType: "severity_multiplier", value: p1Mult, severity: "P1", isActive: true },
@@ -95,19 +94,10 @@ export function CompensationRulesForm({ initialRules, isAdmin }: Props) {
         { name: "Period Cap", description: "Maximum PTO hours per engineer per period", ruleType: "period_cap", value: periodCap, severity: null, isActive: true },
       ];
 
-      const res = await fetch("/api/compensation", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "save_rules", rules }),
-      });
-
-      if (res.ok) {
-        toast.success("Compensation rules saved");
-      } else {
-        toast.error("Failed to save rules");
-      }
-    } catch {
-      toast.error("An error occurred");
+      await api.compensation.saveRules(rules);
+      toast.success("Compensation rules saved");
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "An error occurred");
     } finally {
       setLoading(false);
     }
@@ -121,39 +111,28 @@ export function CompensationRulesForm({ initialRules, isAdmin }: Props) {
 
     setHolidayLoading(true);
     try {
-      const res = await fetch("/api/holidays", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ date: newHolidayDate, name: newHolidayName }),
-      });
-
-      if (res.ok) {
-        toast.success("Holiday added");
-        setNewHolidayDate("");
-        setNewHolidayName("");
-        fetchHolidays();
-      } else {
-        const data = await res.json();
-        toast.error(data.error || "Failed to add holiday");
-      }
-    } catch {
-      toast.error("An error occurred");
+      await api.holidays.create(newHolidayDate, newHolidayName);
+      toast.success("Holiday added");
+      setNewHolidayDate("");
+      setNewHolidayName("");
+      fetchHolidays();
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "An error occurred");
     } finally {
       setHolidayLoading(false);
     }
   }
 
   async function handleDeleteHoliday(id: string) {
+    setDeletingHolidayId(id);
     try {
-      const res = await fetch(`/api/holidays?id=${id}`, { method: "DELETE" });
-      if (res.ok) {
-        toast.success("Holiday removed");
-        fetchHolidays();
-      } else {
-        toast.error("Failed to remove holiday");
-      }
-    } catch {
-      toast.error("An error occurred");
+      await api.holidays.delete(id);
+      toast.success("Holiday removed");
+      fetchHolidays();
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "An error occurred");
+    } finally {
+      setDeletingHolidayId(null);
     }
   }
 
@@ -347,8 +326,13 @@ export function CompensationRulesForm({ initialRules, isAdmin }: Props) {
                       size="icon"
                       className="h-7 w-7 text-destructive"
                       onClick={() => handleDeleteHoliday(holiday.id)}
+                      disabled={deletingHolidayId === holiday.id}
                     >
-                      <Trash2 className="h-3.5 w-3.5" />
+                      {deletingHolidayId === holiday.id ? (
+                        <Spinner className="h-3.5 w-3.5" />
+                      ) : (
+                        <Trash2 className="h-3.5 w-3.5" />
+                      )}
                     </Button>
                   )}
                 </div>

@@ -24,6 +24,7 @@ import { toast } from "sonner";
 import { Hand, X } from "lucide-react";
 import { Spinner } from "@/components/ui/spinner";
 import type { SerializedSwapPost } from "./swap-post-card";
+import { api, ApiError } from "@/lib/api-client";
 
 interface Props {
   open: boolean;
@@ -76,26 +77,15 @@ export function ClaimDialog({ open, onOpenChange, post, mySchedules, onClaimed }
 
     setSubmitting(true);
     try {
-      const res = await fetch(`/api/swaps/${post.id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "claim",
-          ...(isSwap && { offeredWeekStart }),
-          ...(isSwap && isSpecificDays && { offeredDays }),
-        }),
+      await api.swaps.claim(post.id, {
+        ...(isSwap && { offeredWeekStart }),
+        ...(isSwap && isSpecificDays && { offeredDays }),
       });
-
-      if (res.ok) {
-        toast.success("Claim successful!");
-        onOpenChange(false);
-        onClaimed();
-      } else {
-        const data = await res.json();
-        toast.error(data.error || "Failed to claim");
-      }
-    } catch {
-      toast.error("An error occurred");
+      toast.success("Claim successful!");
+      onOpenChange(false);
+      onClaimed();
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "An error occurred");
     } finally {
       setSubmitting(false);
     }
