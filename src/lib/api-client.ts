@@ -187,4 +187,26 @@ export const api = {
         body: { type: "slack", ...config },
       }),
   },
+
+  // ── Notifications ───────────────────────────────────────────────────────
+  notifications: {
+    /** List current user's notifications. */
+    list: (params?: { unread?: boolean; limit?: number }) => {
+      const query = new URLSearchParams();
+      if (params?.unread) query.set("unread", "true");
+      if (params?.limit) query.set("limit", String(params.limit));
+      const qs = query.toString();
+      return request<{ notifications: any[]; unreadCount: number }>(
+        `/api/notifications${qs ? `?${qs}` : ""}`
+      );
+    },
+
+    /** Mark a single notification as read. */
+    markRead: (id: string) =>
+      request(`/api/notifications/${id}`, { method: "PUT", body: { read: true } }),
+
+    /** Mark all notifications as read. */
+    markAllRead: () =>
+      request("/api/notifications", { method: "PUT", body: { action: "mark_all_read" } }),
+  },
 };

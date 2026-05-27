@@ -147,3 +147,23 @@ export async function notifyHighSeverityCall(
     ],
   });
 }
+
+export async function notifyCompensationRulesUpdated(adminName: string) {
+  const config = await prisma.slackConfig.findFirst({
+    where: { isActive: true },
+  });
+  if (!config) return;
+
+  await sendSlackNotification({
+    text: `Compensation Rules Updated by ${adminName}`,
+    blocks: [
+      {
+        type: "section",
+        text: {
+          type: "mrkdwn",
+          text: `*Compensation Rules Updated* :pencil:\n\n*${adminName}* updated the compensation rules. Check the guide for the latest rates.`,
+        },
+      },
+    ],
+  });
+}

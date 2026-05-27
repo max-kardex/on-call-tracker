@@ -338,3 +338,54 @@ describe("api.settings", () => {
     expect(parsed.notifyOnHighSeverity).toBe(false);
   });
 });
+
+// ─── api.notifications ───────────────────────────────────────────────────────
+
+describe("api.notifications", () => {
+  it("list() calls GET /api/notifications", async () => {
+    mockFetch.mockResolvedValueOnce(
+      jsonResponse({ notifications: [], unreadCount: 0 })
+    );
+    const result = await api.notifications.list();
+    const { url, method } = lastFetchCall();
+    expect(method).toBe("GET");
+    expect(url).toBe("/api/notifications");
+    expect(result.unreadCount).toBe(0);
+  });
+
+  it("list({ unread: true }) adds ?unread=true query param", async () => {
+    mockFetch.mockResolvedValueOnce(
+      jsonResponse({ notifications: [], unreadCount: 0 })
+    );
+    await api.notifications.list({ unread: true });
+    const { url } = lastFetchCall();
+    expect(url).toBe("/api/notifications?unread=true");
+  });
+
+  it("list({ limit: 5 }) adds ?limit=5 query param", async () => {
+    mockFetch.mockResolvedValueOnce(
+      jsonResponse({ notifications: [], unreadCount: 0 })
+    );
+    await api.notifications.list({ limit: 5 });
+    const { url } = lastFetchCall();
+    expect(url).toBe("/api/notifications?limit=5");
+  });
+
+  it("markRead() calls PUT /api/notifications/:id", async () => {
+    mockFetch.mockResolvedValueOnce(jsonResponse({ id: "n1", read: true }));
+    await api.notifications.markRead("n1");
+    const { url, method, body } = lastFetchCall();
+    expect(method).toBe("PUT");
+    expect(url).toBe("/api/notifications/n1");
+    expect(JSON.parse(body)).toEqual({ read: true });
+  });
+
+  it("markAllRead() calls PUT /api/notifications with action: mark_all_read", async () => {
+    mockFetch.mockResolvedValueOnce(jsonResponse({ success: true }));
+    await api.notifications.markAllRead();
+    const { url, method, body } = lastFetchCall();
+    expect(method).toBe("PUT");
+    expect(url).toBe("/api/notifications");
+    expect(JSON.parse(body)).toEqual({ action: "mark_all_read" });
+  });
+});

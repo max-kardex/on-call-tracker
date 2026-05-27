@@ -32,6 +32,7 @@ model User {
   swapPostsClaimed  SwapPost[] @relation("SwapClaimer")
   dayCoverages      DayCoverage[]
   ptoCompensations  PtoCompensation[]
+  notifications     Notification[]
 }
 
 model Account {
@@ -253,4 +254,27 @@ model SlackConfig {
   isActive              Boolean @default(true)
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
+}
+
+// ============ NOTIFICATIONS ============
+
+enum NotificationType {
+  SWAP_POSTED
+  COMPENSATION_UPDATED
+  WEEK_ASSIGNED
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      NotificationType
+  title     String
+  message   String
+  read      Boolean          @default(false)
+  metadata  Json?
+  createdAt DateTime         @default(now())
+
+  @@index([userId, read])
+  @@index([userId, createdAt])
 }

@@ -4,6 +4,8 @@ import { prisma } from "@/lib/prisma";
 import { startOfMonth, endOfMonth, format } from "date-fns";
 import { hasRole } from "@/lib/auth-guard";
 import { getAllHolidays, calculateCallPto, type HolidayEntry } from "@/lib/holidays";
+import { notifyCompensationUpdated } from "@/lib/notifications";
+import { notifyCompensationRulesUpdated } from "@/lib/slack";
 
 export const runtime = "nodejs";
 
@@ -225,7 +227,14 @@ export async function POST(request: NextRequest) {
   const { action } = body;
 
   if (action === "save_rules") {
-    return handleSaveRules(body.rules);
+    const response = await handleSaveRules(body.rules);
+
+    // Send notifications (don't block the response)
+    const adminName = (session.user as any).name || "An admin";
+    notifyCompensationUpdated(adminName).catch(() => {});
+    notifyCompensationRulesUpdated(adminName).catch(() => {});
+
+    return response;
   }
 
   // Save individual compensation record

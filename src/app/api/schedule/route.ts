@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { addWeeks, startOfWeek, endOfWeek, isBefore, startOfDay } from "date-fns";
-import { notifyVolunteer } from "@/lib/slack";
+import { notifyVolunteer, notifyRotationReminder } from "@/lib/slack";
+import { notifyWeekAssigned } from "@/lib/notifications";
 import { hasAnyRole, canSelfAssign, canManageSchedule } from "@/lib/auth-guard";
 
 export const runtime = "nodejs";
@@ -261,6 +262,14 @@ async function handleGenerateRotation(body: {
     }
   }
 
+  // Send notifications for each assigned engineer (don't block the response)
+  for (const entry of created) {
+    const engineerName = entry.user.fullName || entry.user.name || entry.user.email || "Someone";
+    const weekLabel = entry.weekStart.toISOString().split("T")[0];
+    notifyWeekAssigned(entry.userId, weekLabel).catch(() => {});
+    notifyRotationReminder(engineerName, weekLabel).catch(() => {});
+  }
+
   return NextResponse.json({ created, count: created.length });
 }
 
@@ -284,6 +293,12 @@ async function handleCreateEntry(body: {
     },
     include: { user: { select: { id: true, name: true, fullName: true, email: true } } },
   });
+
+  // Send notifications for manual assignment
+  const weekLabel = weekStartDate.toISOString().split("T")[0];
+  const engineerName = schedule.user.fullName || schedule.user.name || schedule.user.email || "Someone";
+  notifyWeekAssigned(userId, weekLabel, "an admin").catch(() => {});
+  notifyRotationReminder(engineerName, weekLabel).catch(() => {});
 
   return NextResponse.json(schedule);
 }

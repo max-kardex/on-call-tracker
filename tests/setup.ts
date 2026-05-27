@@ -27,6 +27,7 @@ export const mockPrisma = {
   compensationRule: createMockModel(),
   slackConfig: createMockModel(),
   holiday: createMockModel(),
+  notification: { ...createMockModel(), createMany: vi.fn().mockResolvedValue({ count: 0 }) },
   $transaction: vi.fn(async (fn: any) => {
     if (typeof fn === "function") {
       return fn(mockPrisma);
@@ -60,9 +61,20 @@ export const mockSlack = {
   notifySwapClaimed: vi.fn().mockResolvedValue(undefined),
   notifyVolunteer: vi.fn().mockResolvedValue(undefined),
   notifyHighSeverityCall: vi.fn().mockResolvedValue(undefined),
+  notifyCompensationRulesUpdated: vi.fn().mockResolvedValue(undefined),
 };
 
 vi.mock("@/lib/slack", () => mockSlack);
+
+// ─── Mock Notifications ──────────────────────────────────────────────────────
+
+export const mockNotifications = {
+  notifySwapPosted: vi.fn().mockResolvedValue(undefined),
+  notifyCompensationUpdated: vi.fn().mockResolvedValue(undefined),
+  notifyWeekAssigned: vi.fn().mockResolvedValue(undefined),
+};
+
+vi.mock("@/lib/notifications", () => mockNotifications);
 
 // ─── Mock fetch (for Slack webhook tests) ────────────────────────────────────
 

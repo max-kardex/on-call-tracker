@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { startOfWeek, endOfWeek, isWithinInterval } from "date-fns";
 import { notifySwapPost } from "@/lib/slack";
+import { notifySwapPosted } from "@/lib/notifications";
 import { canCreateSwap } from "@/lib/auth-guard";
 
 export const runtime = "nodejs";
@@ -137,6 +138,15 @@ export async function POST(request: NextRequest) {
     postType,
     coverageType,
     daysDescription
+  );
+
+  // In-app notification for all engineers
+  await notifySwapPosted(
+    session.user.id,
+    post.poster.fullName || post.poster.name || "Unknown",
+    weekStartNormalized.toLocaleDateString(),
+    postType,
+    coverageType
   );
 
   return NextResponse.json(post, { status: 201 });
