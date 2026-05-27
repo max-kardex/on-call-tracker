@@ -23,6 +23,7 @@ import {
   Bell,
   Hand,
   Shield,
+  ExternalLink,
 } from "lucide-react";
 import { CompensationCalculator } from "./compensation-calculator";
 
@@ -63,6 +64,30 @@ export default async function GuidePage() {
           use this tool.
         </p>
       </div>
+
+      {/* On-Call Expectations */}
+      <Card className="border-primary/30 bg-primary/5">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <ExternalLink className="h-5 w-5" />
+            On-Call Expectations &amp; Guidelines
+          </CardTitle>
+          <CardDescription>
+            Full documentation for on-call expectations, escalation procedures, and team responsibilities.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <a
+            href="https://kardex-solutions.atlassian.net/wiki/external/ZDE5YmM2ZDQzNDAxNDZmNGI0YWMzNGJkOTlhYzViYTc"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 text-sm font-medium text-primary hover:underline"
+          >
+            View On-Call Expectations in Confluence
+            <ExternalLink className="h-3.5 w-3.5" />
+          </a>
+        </CardContent>
+      </Card>
 
       {/* Rotation Schedule */}
       <Card>

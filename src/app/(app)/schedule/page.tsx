@@ -42,7 +42,7 @@ export default async function SchedulePage() {
   });
 
   const engineers = await prisma.user.findMany({
-    where: { isActive: true },
+    where: { isActive: true, roles: { has: "ENGINEER" } },
     select: { id: true, name: true, fullName: true, email: true, image: true },
     orderBy: { name: "asc" },
   });
