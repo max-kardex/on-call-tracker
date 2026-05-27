@@ -337,6 +337,17 @@ describe("api.settings", () => {
     expect(parsed.channelName).toBe("#alerts");
     expect(parsed.notifyOnHighSeverity).toBe(false);
   });
+
+  it("testSlack() calls POST /api/settings with type: slack_test", async () => {
+    mockFetch.mockResolvedValueOnce(jsonResponse({ success: true }));
+    await api.settings.testSlack("https://hooks.slack.com/test");
+    const { url, method, body } = lastFetchCall();
+    expect(method).toBe("POST");
+    expect(url).toBe("/api/settings");
+    const parsed = JSON.parse(body);
+    expect(parsed.type).toBe("slack_test");
+    expect(parsed.webhookUrl).toBe("https://hooks.slack.com/test");
+  });
 });
 
 // ─── api.notifications ───────────────────────────────────────────────────────

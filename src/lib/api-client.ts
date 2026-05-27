@@ -186,6 +186,13 @@ export const api = {
         method: "POST",
         body: { type: "slack", ...config },
       }),
+
+    /** Send a test notification to verify Slack webhook. */
+    testSlack: (webhookUrl: string) =>
+      request("/api/settings", {
+        method: "POST",
+        body: { type: "slack_test", webhookUrl },
+      }),
   },
 
   // ── Notifications ───────────────────────────────────────────────────────

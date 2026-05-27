@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { toast } from "sonner";
-import { Save } from "lucide-react";
+import { Save, Send } from "lucide-react";
 import { Spinner } from "@/components/ui/spinner";
 import { api, ApiError } from "@/lib/api-client";
 
@@ -35,6 +35,7 @@ export function SlackConfigForm({ initialConfig, isAdmin }: Props) {
     }
   );
   const [loading, setLoading] = useState(false);
+  const [testLoading, setTestLoading] = useState(false);
 
   function updateField(field: string, value: string | boolean) {
     setConfig((prev) => ({ ...prev, [field]: value }));
@@ -54,6 +55,23 @@ export function SlackConfigForm({ initialConfig, isAdmin }: Props) {
       toast.error(err instanceof ApiError ? err.message : "An error occurred");
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function handleTest() {
+    if (!config.webhookUrl) {
+      toast.error("Webhook URL is required");
+      return;
+    }
+
+    setTestLoading(true);
+    try {
+      await api.settings.testSlack(config.webhookUrl);
+      toast.success("Test notification sent to Slack");
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Failed to send test notification");
+    } finally {
+      setTestLoading(false);
     }
   }
 
@@ -127,10 +145,14 @@ export function SlackConfigForm({ initialConfig, isAdmin }: Props) {
         </div>
       </CardContent>
       {isAdmin && (
-        <CardFooter>
+        <CardFooter className="gap-2">
           <Button onClick={handleSave} disabled={loading}>
             {loading ? <Spinner /> : <Save className="h-4 w-4" />}
             {loading ? "Saving..." : "Save Configuration"}
+          </Button>
+          <Button variant="outline" onClick={handleTest} disabled={testLoading || !config.webhookUrl}>
+            {testLoading ? <Spinner /> : <Send className="h-4 w-4" />}
+            {testLoading ? "Sending..." : "Test Notification"}
           </Button>
         </CardFooter>
       )}

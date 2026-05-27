@@ -37,5 +37,37 @@ export async function POST(request: NextRequest) {
     }
   }
 
+  if (type === "slack_test") {
+    const { webhookUrl } = body;
+    if (!webhookUrl) {
+      return NextResponse.json({ error: "Webhook URL is required" }, { status: 400 });
+    }
+
+    try {
+      const response = await fetch(webhookUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          text: "Test Notification from L3 Support Tracker",
+          blocks: [{
+            type: "section",
+            text: {
+              type: "mrkdwn",
+              text: "*Test Notification* :white_check_mark:\n\nYour Slack integration with L3 Support Tracker is working correctly.",
+            },
+          }],
+        }),
+      });
+
+      if (!response.ok) {
+        return NextResponse.json({ error: "Slack webhook returned an error" }, { status: 502 });
+      }
+
+      return NextResponse.json({ success: true });
+    } catch {
+      return NextResponse.json({ error: "Failed to reach Slack webhook" }, { status: 502 });
+    }
+  }
+
   return NextResponse.json({ error: "Unknown setting type" }, { status: 400 });
 }
