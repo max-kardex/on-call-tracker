@@ -16,7 +16,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "On-Call Tracker | L3 Support Rotation Management",
+  title: "L3 Support Tracker | KFX SWE Support Management",
   description: "Track on-call rotations, log support calls, manage swaps, and estimate PTO compensation for your engineering team.",
 };
 

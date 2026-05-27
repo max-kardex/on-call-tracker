@@ -30,7 +30,7 @@ export function MobileNav() {
       <SheetContent side="left" className="w-64 p-0">
         <div className="flex items-center h-16 px-6 border-b">
           <Phone className="h-6 w-6 mr-2" />
-          <span className="font-heading font-semibold text-lg">On-Call Tracker</span>
+          <span className="font-heading font-semibold text-lg">L3 Support Tracker</span>
         </div>
         <nav className="px-3 py-4 space-y-1">
           {navItems.map((item) => {

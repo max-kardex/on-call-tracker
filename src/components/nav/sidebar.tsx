@@ -34,7 +34,7 @@ export function Sidebar() {
           <Link href="/dashboard" className="flex items-center gap-2">
             <Phone className="h-6 w-6 text-sidebar-primary" />
             <span className="font-heading font-semibold text-lg text-sidebar-foreground">
-              On-Call Tracker
+              L3 Support Tracker
             </span>
           </Link>
         </div>

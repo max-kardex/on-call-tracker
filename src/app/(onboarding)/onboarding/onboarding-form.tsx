@@ -66,7 +66,7 @@ export function OnboardingForm() {
             <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
               <UserCircle className="h-6 w-6 text-primary" />
             </div>
-            <CardTitle className="text-2xl font-heading">Welcome to On-Call Tracker</CardTitle>
+            <CardTitle className="text-2xl font-heading">Welcome to the KFX L3 Support Tracker</CardTitle>
             <CardDescription>
               Let&apos;s get your profile set up. This helps your team know how to reach you when you&apos;re on-call.
             </CardDescription>

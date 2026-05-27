@@ -101,6 +101,7 @@ async function handleCalculate(periodStart: string | null, periodEnd: string | n
     userId: string;
     userName: string;
     totalCalls: number;
+    totalDuration: number;
     callsBySeverity: Record<string, number>;
     regularCalls: number;
     weekendHolidayCalls: number;
@@ -116,6 +117,7 @@ async function handleCalculate(periodStart: string | null, periodEnd: string | n
         userId,
         userName: call.user.fullName || call.user.name || "Unknown",
         totalCalls: 0,
+        totalDuration: 0,
         callsBySeverity: { P1: 0, P2: 0, P3: 0, P4: 0 },
         regularCalls: 0,
         weekendHolidayCalls: 0,
@@ -131,6 +133,7 @@ async function handleCalculate(periodStart: string | null, periodEnd: string | n
 
     // Calculate PTO for this call
     const durationMinutes = call.duration ?? 30; // Default 30 min if not set
+    entry.totalDuration += durationMinutes;
     const { pto, dayType } = calculateCallPto(
       durationMinutes,
       call.startTime,

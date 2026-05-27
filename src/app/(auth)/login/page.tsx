@@ -13,7 +13,7 @@ export default function LoginPage() {
           <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
             <Phone className="h-6 w-6 text-primary" />
           </div>
-          <CardTitle className="text-2xl font-heading">On-Call Tracker</CardTitle>
+          <CardTitle className="text-2xl font-heading">L3 Support Tracker</CardTitle>
           <CardDescription>
             Sign in to manage your L3 support on-call rotation, log calls, and track PTO compensation.
           </CardDescription>

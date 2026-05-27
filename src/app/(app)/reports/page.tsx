@@ -23,6 +23,7 @@ interface CompensationEntry {
   userId: string;
   userName: string;
   totalCalls: number;
+  totalDuration: number;
   callsBySeverity: Record<string, number>;
   regularCalls: number;
   weekendHolidayCalls: number;
@@ -62,7 +63,16 @@ export default function ReportsPage() {
     );
   }
 
+  function formatDuration(minutes: number): string {
+    const h = Math.floor(minutes / 60);
+    const m = minutes % 60;
+    if (h === 0) return `${m}m`;
+    if (m === 0) return `${h}h`;
+    return `${h}h ${m}m`;
+  }
+
   const totalHours = data?.reduce((sum, entry) => sum + entry.totalHours, 0) ?? 0;
+  const totalDuration = data?.reduce((sum, entry) => sum + entry.totalDuration, 0) ?? 0;
   const cappedCount = data?.filter((entry) => entry.capped).length ?? 0;
 
   return (
@@ -118,7 +128,7 @@ export default function ReportsPage() {
       {data && (
         <>
           {/* Summary */}
-          <div className="grid gap-4 md:grid-cols-4">
+          <div className="grid gap-4 md:grid-cols-5">
             <Card>
               <CardContent className="pt-6">
                 <p className="text-sm text-muted-foreground">Total Engineers</p>
@@ -137,6 +147,12 @@ export default function ReportsPage() {
                 <p className="text-2xl font-bold">
                   {data.reduce((sum, e) => sum + e.totalCalls, 0)}
                 </p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="pt-6">
+                <p className="text-sm text-muted-foreground">Total Call Duration</p>
+                <p className="text-2xl font-bold">{formatDuration(totalDuration)}</p>
               </CardContent>
             </Card>
             <Card>
@@ -169,6 +185,7 @@ export default function ReportsPage() {
                   <TableRow>
                     <TableHead>Engineer</TableHead>
                     <TableHead>Total Calls</TableHead>
+                    <TableHead>Duration</TableHead>
                     <TableHead>Regular</TableHead>
                     <TableHead>Wknd/Holiday</TableHead>
                     <TableHead>P1</TableHead>
@@ -182,7 +199,7 @@ export default function ReportsPage() {
                 <TableBody>
                   {data.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
+                      <TableCell colSpan={11} className="text-center py-8 text-muted-foreground">
                         No on-call activity found for this period.
                       </TableCell>
                     </TableRow>
@@ -191,6 +208,7 @@ export default function ReportsPage() {
                       <TableRow key={entry.userId}>
                         <TableCell className="font-medium">{entry.userName}</TableCell>
                         <TableCell>{entry.totalCalls}</TableCell>
+                        <TableCell>{formatDuration(entry.totalDuration)}</TableCell>
                         <TableCell>{entry.regularCalls}</TableCell>
                         <TableCell>
                           {entry.weekendHolidayCalls > 0 ? (

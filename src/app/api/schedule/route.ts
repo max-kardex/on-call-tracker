@@ -90,10 +90,11 @@ async function handleSelfAssign(
   }
 
   const weekStartDate = startOfWeek(new Date(weekStart + "T12:00:00"), { weekStartsOn: 1 });
+  const weekEndDate = endOfWeek(weekStartDate, { weekStartsOn: 1 });
   const today = startOfDay(new Date());
 
-  // Validate: must be a future week
-  if (isBefore(weekStartDate, today)) {
+  // Validate: week must not have already ended
+  if (isBefore(weekEndDate, today)) {
     return NextResponse.json(
       { error: "Cannot self-assign to a past week" },
       { status: 400 }
@@ -111,8 +112,6 @@ async function handleSelfAssign(
       { status: 409 }
     );
   }
-
-  const weekEndDate = endOfWeek(weekStartDate, { weekStartsOn: 1 });
 
   const schedule = await prisma.schedule.create({
     data: {

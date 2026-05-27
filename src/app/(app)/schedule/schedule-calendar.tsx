@@ -188,7 +188,7 @@ export function ScheduleCalendar({
             <div className="grid gap-3">
               {upcomingItems.map((item) => {
                 if (item.type === "open") {
-                  const isFuture = item.weekStart >= todayStr;
+                  const isNotExpired = item.weekEnd >= todayStr;
                   const displayStart = toDisplayDate(item.weekStart);
                   const displayEnd = toDisplayDate(item.weekEnd);
 
@@ -218,7 +218,7 @@ export function ScheduleCalendar({
                         </div>
 
                         {/* Self-assign button */}
-                        {isFuture && (
+                        {isNotExpired && (
                           <Button
                             size="sm"
                             variant="outline"

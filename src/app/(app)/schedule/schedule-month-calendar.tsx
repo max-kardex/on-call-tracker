@@ -287,7 +287,8 @@ export function ScheduleMonthCalendar({ openWeeks, currentUserId }: Props) {
                 : 0;
               const isOpenMonday = isOpenWeekMonday(day);
               const dayStr = format(day, "yyyy-MM-dd");
-              const isFuture = dayStr >= todayStr;
+              const weekEndStr = format(endOfWeek(day, { weekStartsOn: 1 }), "yyyy-MM-dd");
+              const isNotExpired = weekEndStr >= todayStr;
 
               return (
                 <div
@@ -326,14 +327,14 @@ export function ScheduleMonthCalendar({ openWeeks, currentUserId }: Props) {
                       ) : schedule.isSelfAssigned ? (
                         <Hand className="inline h-2.5 w-2.5 mr-0.5" />
                       ) : null}
-                      {(effectiveUser.fullName ?? effectiveUser.name)?.split(" ")[0] ??
+                      {effectiveUser.fullName ?? effectiveUser.name ??
                         effectiveUser.email?.split("@")[0]}
                       {!dayCoverage && schedule.isOverride && " *"}
                     </div>
                   )}
 
                   {/* Self-assign button on Monday of open future weeks */}
-                  {isOpenMonday && isFuture && !schedule && (
+                  {isOpenMonday && isNotExpired && !schedule && (
                     <button
                       onClick={() => handleSelfAssign(dayStr)}
                       disabled={loadingWeek === dayStr}
