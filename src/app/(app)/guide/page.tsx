@@ -24,8 +24,10 @@ import {
   Hand,
   Shield,
   ExternalLink,
+  Users,
 } from "lucide-react";
 import { CompensationCalculator } from "./compensation-calculator";
+import { startOfWeek, addWeeks } from "date-fns";
 
 export const dynamic = "force-dynamic";
 
@@ -34,6 +36,33 @@ export default async function GuidePage() {
     where: { isActive: true },
     orderBy: [{ ruleType: "asc" }, { severity: "asc" }],
   });
+
+  // Fetch rotation priority data
+  const now = new Date();
+  const windowStart = startOfWeek(now, { weekStartsOn: 1 });
+  const windowEnd = addWeeks(windowStart, 12);
+
+  const [engineers, selfAssignedSchedules] = await Promise.all([
+    prisma.user.findMany({
+      where: { isActive: true, roles: { has: "ENGINEER" } },
+      select: { id: true, name: true, fullName: true, email: true },
+      orderBy: { name: "asc" },
+    }),
+    prisma.schedule.findMany({
+      where: {
+        isSelfAssigned: true,
+        weekStart: { gte: windowStart, lte: windowEnd },
+      },
+      select: { userId: true },
+    }),
+  ]);
+
+  const selfAssignedIds = new Set(selfAssignedSchedules.map((s) => s.userId));
+
+  // Build rotation order: regular pool first, deprioritized last
+  const regularPool = engineers.filter((e) => !selfAssignedIds.has(e.id));
+  const deprioritizedPool = engineers.filter((e) => selfAssignedIds.has(e.id));
+  const rotationOrder = [...regularPool, ...deprioritizedPool];
 
   // Extract multipliers and cap for the calculator
   const severityMultipliers: Record<string, number> = {};
@@ -124,6 +153,58 @@ export default async function GuidePage() {
               including any unassigned gaps.
             </li>
           </ul>
+        </CardContent>
+      </Card>
+
+      {/* Current Rotation Priority */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Users className="h-5 w-5" />
+            Current Rotation Priority
+          </CardTitle>
+          <CardDescription>
+            The order engineers will be assigned when a rotation is generated. De-prioritized engineers
+            have self-assigned weeks in the next 12 weeks and are placed last.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-12">#</TableHead>
+                <TableHead>Engineer</TableHead>
+                <TableHead>Status</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {rotationOrder.map((eng, idx) => {
+                const isDeprioritized = selfAssignedIds.has(eng.id);
+                return (
+                  <TableRow key={eng.id}>
+                    <TableCell className="text-muted-foreground">{idx + 1}</TableCell>
+                    <TableCell className="font-medium">
+                      {eng.fullName ?? eng.name ?? eng.email}
+                    </TableCell>
+                    <TableCell>
+                      {isDeprioritized ? (
+                        <Badge variant="outline" className="text-xs">De-prioritized</Badge>
+                      ) : (
+                        <Badge variant="default" className="text-xs">Regular</Badge>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+              {rotationOrder.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={3} className="text-center py-4 text-muted-foreground">
+                    No active engineers found.
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
         </CardContent>
       </Card>
 

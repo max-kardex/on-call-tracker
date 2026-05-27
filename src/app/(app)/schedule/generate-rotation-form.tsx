@@ -16,6 +16,7 @@ import {
 import { toast } from "sonner";
 import { Plus, X, CalendarPlus } from "lucide-react";
 import { Spinner } from "@/components/ui/spinner";
+import { Badge } from "@/components/ui/badge";
 import { api, ApiError } from "@/lib/api-client";
 
 interface Engineer {
@@ -28,9 +29,10 @@ interface Engineer {
 
 interface Props {
   engineers: Engineer[];
+  deprioritizedIds: string[];
 }
 
-export function GenerateRotationForm({ engineers }: Props) {
+export function GenerateRotationForm({ engineers, deprioritizedIds }: Props) {
   const [open, setOpen] = useState(false);
   const [startDate, setStartDate] = useState("");
   const [weeks, setWeeks] = useState("12");
@@ -97,16 +99,26 @@ export function GenerateRotationForm({ engineers }: Props) {
             <p className="text-sm text-muted-foreground">
               This will create a round-robin rotation with the following {engineers.length} engineers:
             </p>
-            <ul className="mt-2 text-sm space-y-1">
-              {engineers.slice(0, 5).map((eng) => (
-                <li key={eng.id}>{eng.fullName ?? eng.name ?? eng.email}</li>
-              ))}
-              {engineers.length > 5 && (
-                <li className="text-muted-foreground">
-                  ...and {engineers.length - 5} more
-                </li>
-              )}
+            <ul className="mt-2 text-sm space-y-1 max-h-48 overflow-y-auto">
+              {engineers.map((eng) => {
+                const isDeprioritized = deprioritizedIds.includes(eng.id);
+                return (
+                  <li key={eng.id} className="flex items-center gap-2">
+                    <span>{eng.fullName ?? eng.name ?? eng.email}</span>
+                    {isDeprioritized && (
+                      <Badge variant="outline" className="text-xs">
+                        De-prioritized
+                      </Badge>
+                    )}
+                  </li>
+                );
+              })}
             </ul>
+            {deprioritizedIds.length > 0 && (
+              <p className="text-xs text-muted-foreground mt-2">
+                De-prioritized engineers have self-assigned weeks in the upcoming window and will be placed last in the rotation order.
+              </p>
+            )}
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => setOpen(false)}>

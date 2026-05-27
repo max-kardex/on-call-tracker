@@ -49,6 +49,11 @@ export default async function SchedulePage() {
 
   const canManage = hasAnyRole(session, ["ADMIN", "MANAGER"]);
 
+  // Identify engineers who have self-assigned in the upcoming window (they'll be deprioritized)
+  const selfAssignedIds = [...new Set(
+    upcomingSchedules.filter((s) => s.isSelfAssigned).map((s) => s.userId)
+  )];
+
   // Serialize dates as YYYY-MM-DD to avoid timezone issues on the client
   const serializedSchedules = upcomingSchedules.map((s) => ({
     id: s.id,
@@ -97,7 +102,7 @@ export default async function SchedulePage() {
             On-call rotation schedule
           </p>
         </div>
-        {canManage && <GenerateRotationForm engineers={engineers} />}
+        {canManage && <GenerateRotationForm engineers={engineers} deprioritizedIds={selfAssignedIds} />}
       </div>
 
       <ScheduleViewToggle
