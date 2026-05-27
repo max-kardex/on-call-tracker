@@ -13,8 +13,12 @@ export default async function SettingsPage() {
   const isAdmin = hasRole(session, "ADMIN");
 
   const [rules, slackConfig, users] = await Promise.all([
-    prisma.compensationRule.findMany({ orderBy: { ruleType: "asc" } }),
-    prisma.slackConfig.findFirst({ where: { isActive: true } }),
+    isAdmin
+      ? prisma.compensationRule.findMany({ orderBy: { ruleType: "asc" } })
+      : Promise.resolve([]),
+    isAdmin
+      ? prisma.slackConfig.findFirst({ where: { isActive: true } })
+      : Promise.resolve(null),
     prisma.user.findMany({
       select: { id: true, name: true, fullName: true, email: true, roles: true, isActive: true, image: true },
       orderBy: { name: "asc" },
@@ -33,8 +37,8 @@ export default async function SettingsPage() {
       <Tabs defaultValue="team" className="space-y-4">
         <TabsList>
           <TabsTrigger value="team">Team</TabsTrigger>
-          <TabsTrigger value="compensation">Compensation Rules</TabsTrigger>
-          <TabsTrigger value="slack">Slack</TabsTrigger>
+          {isAdmin && <TabsTrigger value="compensation">Compensation Rules</TabsTrigger>}
+          {isAdmin && <TabsTrigger value="slack">Slack</TabsTrigger>}
         </TabsList>
 
         <TabsContent value="team">
@@ -47,38 +51,42 @@ export default async function SettingsPage() {
           />
         </TabsContent>
 
-        <TabsContent value="compensation">
-          <CompensationRulesForm
-            initialRules={rules.map((r) => ({
-              id: r.id,
-              name: r.name,
-              description: r.description,
-              ruleType: r.ruleType,
-              value: r.value,
-              severity: r.severity,
-              isActive: r.isActive,
-            }))}
-            isAdmin={isAdmin}
-          />
-        </TabsContent>
+        {isAdmin && (
+          <TabsContent value="compensation">
+            <CompensationRulesForm
+              initialRules={rules.map((r) => ({
+                id: r.id,
+                name: r.name,
+                description: r.description,
+                ruleType: r.ruleType,
+                value: r.value,
+                severity: r.severity,
+                isActive: r.isActive,
+              }))}
+              isAdmin={isAdmin}
+            />
+          </TabsContent>
+        )}
 
-        <TabsContent value="slack">
-          <SlackConfigForm
-            initialConfig={
-              slackConfig
-                ? {
-                    id: slackConfig.id,
-                    webhookUrl: slackConfig.webhookUrl,
-                    channelName: slackConfig.channelName,
-                    notifyOnRotation: slackConfig.notifyOnRotation,
-                    notifyOnSwap: slackConfig.notifyOnSwap,
-                    notifyOnHighSeverity: slackConfig.notifyOnHighSeverity,
-                  }
-                : null
-            }
-            isAdmin={isAdmin}
-          />
-        </TabsContent>
+        {isAdmin && (
+          <TabsContent value="slack">
+            <SlackConfigForm
+              initialConfig={
+                slackConfig
+                  ? {
+                      id: slackConfig.id,
+                      webhookUrl: slackConfig.webhookUrl,
+                      channelName: slackConfig.channelName,
+                      notifyOnRotation: slackConfig.notifyOnRotation,
+                      notifyOnSwap: slackConfig.notifyOnSwap,
+                      notifyOnHighSeverity: slackConfig.notifyOnHighSeverity,
+                    }
+                  : null
+              }
+              isAdmin={isAdmin}
+            />
+          </TabsContent>
+        )}
       </Tabs>
     </div>
   );
