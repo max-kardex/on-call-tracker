@@ -8,6 +8,7 @@ import {
   mockManagerSession,
   mockNoSession,
   mockSlack,
+  mockNotifications,
 } from "../setup";
 
 describe("GET /api/schedule", () => {
@@ -137,6 +138,32 @@ describe("POST /api/schedule - self-assign", () => {
 
     expect(mockSlack.notifyVolunteer).toHaveBeenCalledWith("Alice", expect.any(String));
   });
+
+  it("handles full ISO date string for weekStart in self-assign", async () => {
+    mockSession({ id: "user-1", name: "Alice" });
+    mockPrisma.schedule.findFirst.mockResolvedValue(null);
+    mockPrisma.schedule.create.mockResolvedValue({
+      id: "s1",
+      userId: "user-1",
+      isSelfAssigned: true,
+      weekStart: new Date("2027-06-07T00:00:00.000Z"),
+      user: { id: "user-1", name: "Alice", fullName: "Alice A", email: "alice@test.com", image: null },
+    });
+
+    const req = new NextRequest("http://localhost/api/schedule", {
+      method: "POST",
+      body: JSON.stringify({ action: "self-assign", weekStart: "2027-06-07T00:00:00.000Z" }),
+    });
+    const res = await POST(req);
+    expect(res.status).toBe(200);
+
+    // Verify the create call used valid dates
+    const createCall = mockPrisma.schedule.create.mock.calls[0][0];
+    expect(createCall.data.weekStart).toBeInstanceOf(Date);
+    expect(isNaN(createCall.data.weekStart.getTime())).toBe(false);
+    expect(createCall.data.weekEnd).toBeInstanceOf(Date);
+    expect(isNaN(createCall.data.weekEnd.getTime())).toBe(false);
+  });
 });
 
 describe("POST /api/schedule - generate rotation", () => {
@@ -253,6 +280,38 @@ describe("POST /api/schedule - generate rotation", () => {
     expect(upsertCalls[1]).toBe("u3");
     expect(upsertCalls[2]).toBe("u2");
   });
+
+  it("handles full ISO date string for startDate in rotation generation", async () => {
+    mockManagerSession();
+    mockPrisma.user.findMany.mockResolvedValue([{ id: "u1" }, { id: "u2" }]);
+    mockPrisma.schedule.findMany.mockResolvedValue([]);
+    mockPrisma.schedule.findFirst.mockResolvedValue(null);
+    mockPrisma.schedule.upsert.mockImplementation(async (args) => ({
+      ...args.create,
+      id: "generated-id",
+      weekStart: args.create.weekStart,
+      user: { id: args.create.userId, name: "User", fullName: "User Name", email: "u@test.com" },
+    }));
+
+    const req = new NextRequest("http://localhost/api/schedule", {
+      method: "POST",
+      body: JSON.stringify({
+        action: "generate",
+        startDate: "2027-06-01T00:00:00.000Z",
+        weeks: 2,
+      }),
+    });
+    const res = await POST(req);
+    const data = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(data.count).toBe(2);
+
+    // Verify upsert was called with valid dates
+    const upsertCall = mockPrisma.schedule.upsert.mock.calls[0][0];
+    expect(upsertCall.create.weekStart).toBeInstanceOf(Date);
+    expect(isNaN(upsertCall.create.weekStart.getTime())).toBe(false);
+  });
 });
 
 describe("POST /api/schedule - create entry", () => {
@@ -263,7 +322,7 @@ describe("POST /api/schedule - create entry", () => {
       userId: "u1",
       isOverride: true,
       isSelfAssigned: false,
-      user: { id: "u1", name: "Alice", email: "a@test.com" },
+      user: { id: "u1", name: "Alice", fullName: "Alice A", email: "a@test.com" },
     });
 
     const req = new NextRequest("http://localhost/api/schedule", {
@@ -283,6 +342,60 @@ describe("POST /api/schedule - create entry", () => {
           isSelfAssigned: false,
         }),
       })
+    );
+  });
+
+  it("handles full ISO date string for weekStart in manual create", async () => {
+    mockManagerSession();
+    mockPrisma.schedule.create.mockResolvedValue({
+      id: "s1",
+      userId: "u1",
+      weekStart: new Date("2027-06-02T00:00:00.000Z"),
+      isOverride: true,
+      isSelfAssigned: false,
+      user: { id: "u1", name: "Alice", fullName: "Alice A", email: "a@test.com" },
+    });
+
+    const req = new NextRequest("http://localhost/api/schedule", {
+      method: "POST",
+      body: JSON.stringify({ userId: "u1", weekStart: "2027-06-01T00:00:00.000Z", notes: "ISO date" }),
+    });
+    const res = await POST(req);
+    expect(res.status).toBe(200);
+
+    // Verify create was called with valid dates
+    const createCall = mockPrisma.schedule.create.mock.calls[0][0];
+    expect(createCall.data.weekStart).toBeInstanceOf(Date);
+    expect(isNaN(createCall.data.weekStart.getTime())).toBe(false);
+    expect(createCall.data.weekEnd).toBeInstanceOf(Date);
+    expect(isNaN(createCall.data.weekEnd.getTime())).toBe(false);
+  });
+
+  it("sends in-app and Slack notifications on manual assignment", async () => {
+    mockManagerSession();
+    mockPrisma.schedule.create.mockResolvedValue({
+      id: "s1",
+      userId: "u1",
+      weekStart: new Date("2027-06-02T00:00:00.000Z"),
+      isOverride: true,
+      isSelfAssigned: false,
+      user: { id: "u1", name: "Alice", fullName: "Alice A", email: "a@test.com" },
+    });
+
+    const req = new NextRequest("http://localhost/api/schedule", {
+      method: "POST",
+      body: JSON.stringify({ userId: "u1", weekStart: "2027-06-01" }),
+    });
+    await POST(req);
+
+    expect(mockNotifications.notifyWeekAssigned).toHaveBeenCalledWith(
+      "u1",
+      expect.any(String),
+      "an admin"
+    );
+    expect(mockSlack.notifyRotationReminder).toHaveBeenCalledWith(
+      "Alice A",
+      expect.any(String)
     );
   });
 });

@@ -67,7 +67,10 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Invalid coverageType" }, { status: 400 });
   }
 
-  const weekStartDate = new Date(weekStart + "T12:00:00");
+  const weekStartStr = typeof weekStart === "string" && weekStart.length > 10
+    ? weekStart.slice(0, 10)
+    : weekStart;
+  const weekStartDate = new Date(weekStartStr + "T12:00:00");
   const weekStartNormalized = startOfWeek(weekStartDate, { weekStartsOn: 1 });
   const weekEndNormalized = endOfWeek(weekStartDate, { weekStartsOn: 1 });
 

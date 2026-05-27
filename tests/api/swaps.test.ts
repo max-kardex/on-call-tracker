@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { NextRequest } from "next/server";
 import { GET, POST } from "@/app/api/swaps/route";
-import { mockPrisma, mockSession, mockNoSession, mockSlack } from "../setup";
+import { mockPrisma, mockSession, mockNoSession, mockSlack, mockNotifications } from "../setup";
 
 describe("GET /api/swaps", () => {
   it("returns 401 when not authenticated", async () => {
@@ -222,5 +222,63 @@ describe("POST /api/swaps", () => {
     });
     const res = await POST(req);
     expect(res.status).toBe(400);
+  });
+
+  it("handles full ISO date string for weekStart (e.g. from calendar)", async () => {
+    mockSession({ id: "user-1", name: "Alice" });
+    mockPrisma.schedule.findFirst.mockResolvedValue({ id: "sched-1", userId: "user-1" });
+    mockPrisma.swapPost.create.mockResolvedValue({
+      id: "sw1",
+      posterId: "user-1",
+      postType: "GIVE_AWAY",
+      coverageType: "FULL_WEEK",
+      status: "OPEN",
+      poster: { id: "user-1", name: "Alice", fullName: "Alice A", email: "a@test.com" },
+    });
+
+    const req = new NextRequest("http://localhost/api/swaps", {
+      method: "POST",
+      body: JSON.stringify({
+        postType: "GIVE_AWAY",
+        coverageType: "FULL_WEEK",
+        weekStart: "2026-06-22T00:00:00.000Z",
+        specificDays: [],
+        reason: "test",
+      }),
+    });
+    const res = await POST(req);
+    expect(res.status).toBe(201);
+
+    // Should have called schedule.findFirst with a valid Date (not Invalid Date)
+    const findFirstCall = mockPrisma.schedule.findFirst.mock.calls[0][0];
+    expect(findFirstCall.where.weekStart).toBeInstanceOf(Date);
+    expect(isNaN(findFirstCall.where.weekStart.getTime())).toBe(false);
+  });
+
+  it("sends in-app notifications on post creation", async () => {
+    mockSession({ id: "user-1", name: "Alice" });
+    mockPrisma.schedule.findFirst.mockResolvedValue({ id: "sched-1", userId: "user-1" });
+    mockPrisma.swapPost.create.mockResolvedValue({
+      id: "sw1",
+      poster: { id: "user-1", name: "Alice", fullName: "Alice A", email: "a@test.com" },
+    });
+
+    const req = new NextRequest("http://localhost/api/swaps", {
+      method: "POST",
+      body: JSON.stringify({
+        postType: "SWAP",
+        coverageType: "FULL_WEEK",
+        weekStart: "2026-06-01",
+      }),
+    });
+    await POST(req);
+
+    expect(mockNotifications.notifySwapPosted).toHaveBeenCalledWith(
+      "user-1",
+      "Alice A",
+      expect.any(String),
+      "SWAP",
+      "FULL_WEEK"
+    );
   });
 });

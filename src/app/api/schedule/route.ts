@@ -90,7 +90,10 @@ async function handleSelfAssign(
     return NextResponse.json({ error: "User ID not found" }, { status: 400 });
   }
 
-  const weekStartDate = startOfWeek(new Date(weekStart + "T12:00:00"), { weekStartsOn: 1 });
+  const weekStartStr = typeof weekStart === "string" && weekStart.length > 10
+    ? weekStart.slice(0, 10)
+    : weekStart;
+  const weekStartDate = startOfWeek(new Date(weekStartStr + "T12:00:00"), { weekStartsOn: 1 });
   const weekEndDate = endOfWeek(weekStartDate, { weekStartsOn: 1 });
   const today = startOfDay(new Date());
 
@@ -143,8 +146,12 @@ async function handleGenerateRotation(body: {
   weeks: number;
   engineerIds?: string[];
 }) {
-  const { startDate, weeks } = body;
+  const { startDate: rawStartDate, weeks } = body;
   let { engineerIds } = body;
+
+  const startDateStr = typeof rawStartDate === "string" && rawStartDate.length > 10
+    ? rawStartDate.slice(0, 10)
+    : rawStartDate;
 
   // If no specific engineers provided, use all active users with ENGINEER role
   if (!engineerIds || engineerIds.length === 0) {
@@ -163,7 +170,7 @@ async function handleGenerateRotation(body: {
     );
   }
 
-  const baseDate = startOfWeek(new Date(startDate + "T12:00:00"), { weekStartsOn: 1 });
+  const baseDate = startOfWeek(new Date(startDateStr + "T12:00:00"), { weekStartsOn: 1 });
   const windowEnd = addWeeks(baseDate, weeks);
 
   // Find existing entries in this generation window (including self-assigned)
@@ -279,7 +286,10 @@ async function handleCreateEntry(body: {
   notes?: string;
 }) {
   const { userId, weekStart, notes } = body;
-  const weekStartDate = startOfWeek(new Date(weekStart + "T12:00:00"), { weekStartsOn: 1 });
+  const weekStartStr = typeof weekStart === "string" && weekStart.length > 10
+    ? weekStart.slice(0, 10)
+    : weekStart;
+  const weekStartDate = startOfWeek(new Date(weekStartStr + "T12:00:00"), { weekStartsOn: 1 });
   const weekEndDate = endOfWeek(weekStartDate, { weekStartsOn: 1 });
 
   const schedule = await prisma.schedule.create({
