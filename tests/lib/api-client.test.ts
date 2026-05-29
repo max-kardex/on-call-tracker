@@ -400,3 +400,57 @@ describe("api.notifications", () => {
     expect(JSON.parse(body)).toEqual({ action: "mark_all_read" });
   });
 });
+
+// ─── Verify ──────────────────────────────────────────────────────────────────
+
+describe("api.verify", () => {
+  it("submit() calls POST /api/verify with code", async () => {
+    mockFetch.mockResolvedValueOnce(jsonResponse({ success: true }));
+    await api.verify.submit("A3F9X2K7");
+    const { url, method, body } = lastFetchCall();
+    expect(method).toBe("POST");
+    expect(url).toBe("/api/verify");
+    expect(JSON.parse(body)).toEqual({ code: "A3F9X2K7" });
+  });
+
+  it("submit() throws ApiError on invalid code", async () => {
+    mockFetch.mockResolvedValueOnce(errorResponse(403, "Invalid invite code"));
+    await expect(api.verify.submit("WRONG")).rejects.toThrow("Invalid invite code");
+  });
+});
+
+// ─── Invite Code ─────────────────────────────────────────────────────────────
+
+describe("api.inviteCode", () => {
+  it("get() calls GET /api/invite-code", async () => {
+    mockFetch.mockResolvedValueOnce(
+      jsonResponse({ code: "A3F9X2K7", createdAt: "2026-01-01T00:00:00Z", createdBy: "Admin" })
+    );
+    const result = await api.inviteCode.get();
+    const { url, method } = lastFetchCall();
+    expect(method).toBe("GET");
+    expect(url).toBe("/api/invite-code");
+    expect(result.code).toBe("A3F9X2K7");
+  });
+
+  it("regenerate() calls POST /api/invite-code", async () => {
+    mockFetch.mockResolvedValueOnce(jsonResponse({ code: "B4G8Y3L2" }));
+    const result = await api.inviteCode.regenerate();
+    const { url, method } = lastFetchCall();
+    expect(method).toBe("POST");
+    expect(url).toBe("/api/invite-code");
+    expect(result.code).toBe("B4G8Y3L2");
+  });
+});
+
+// ─── Users.approve ───────────────────────────────────────────────────────────
+
+describe("api.users.approve", () => {
+  it("approve() calls PUT /api/users/:id/verify", async () => {
+    mockFetch.mockResolvedValueOnce(jsonResponse({ success: true }));
+    await api.users.approve("user-123");
+    const { url, method } = lastFetchCall();
+    expect(method).toBe("PUT");
+    expect(url).toBe("/api/users/user-123/verify");
+  });
+});

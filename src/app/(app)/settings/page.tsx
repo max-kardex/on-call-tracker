@@ -12,7 +12,7 @@ export default async function SettingsPage() {
   const session = await auth();
   const isAdmin = hasRole(session, "ADMIN");
 
-  const [rules, slackConfig, users] = await Promise.all([
+  const [rules, slackConfig, users, pendingUsers, inviteCode] = await Promise.all([
     isAdmin
       ? prisma.compensationRule.findMany({ orderBy: { ruleType: "asc" } })
       : Promise.resolve([]),
@@ -20,9 +20,23 @@ export default async function SettingsPage() {
       ? prisma.slackConfig.findFirst({ where: { isActive: true } })
       : Promise.resolve(null),
     prisma.user.findMany({
+      where: { verified: true },
       select: { id: true, name: true, fullName: true, email: true, roles: true, isActive: true, image: true },
       orderBy: { name: "asc" },
     }),
+    isAdmin
+      ? prisma.user.findMany({
+          where: { verified: false },
+          select: { id: true, name: true, fullName: true, email: true, image: true, createdAt: true },
+          orderBy: { createdAt: "desc" },
+        })
+      : Promise.resolve([]),
+    isAdmin
+      ? prisma.inviteCode.findFirst({
+          orderBy: { createdAt: "desc" },
+          include: { createdBy: { select: { fullName: true, name: true } } },
+        })
+      : Promise.resolve(null),
   ]);
 
   return (
@@ -36,7 +50,14 @@ export default async function SettingsPage() {
 
       <Tabs defaultValue="team" className="space-y-4">
         <TabsList>
-          <TabsTrigger value="team">Team</TabsTrigger>
+          <TabsTrigger value="team">
+            Team
+            {isAdmin && pendingUsers.length > 0 && (
+              <span className="ml-1.5 inline-flex items-center justify-center rounded-full bg-destructive px-1.5 py-0.5 text-xs font-medium text-destructive-foreground">
+                {pendingUsers.length}
+              </span>
+            )}
+          </TabsTrigger>
           {isAdmin && <TabsTrigger value="compensation">Compensation Rules</TabsTrigger>}
           {isAdmin && <TabsTrigger value="slack">Slack</TabsTrigger>}
         </TabsList>
@@ -48,6 +69,15 @@ export default async function SettingsPage() {
               roles: u.roles as string[],
             }))}
             isAdmin={isAdmin}
+            pendingUsers={pendingUsers.map((u) => ({
+              ...u,
+              createdAt: u.createdAt.toISOString(),
+            }))}
+            inviteCode={inviteCode ? {
+              code: inviteCode.code,
+              createdAt: inviteCode.createdAt.toISOString(),
+              createdBy: inviteCode.createdBy.fullName || inviteCode.createdBy.name || "Unknown",
+            } : null}
           />
         </TabsContent>
 

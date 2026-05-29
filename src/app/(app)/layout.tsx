@@ -11,12 +11,16 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   // Protect all routes under (app) - redirects to /login if not authenticated
   const session = await requireAuth();
 
-  // Redirect to onboarding if user hasn't completed it
+  // Redirect to verification or onboarding if needed
   if (session?.user?.id) {
     const user = await prisma.user.findUnique({
       where: { id: session.user.id },
-      select: { onboarded: true },
+      select: { verified: true, onboarded: true },
     });
+
+    if (user && !user.verified) {
+      redirect("/verify");
+    }
 
     if (user && !user.onboarded) {
       redirect("/onboarding");

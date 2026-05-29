@@ -2,18 +2,18 @@ import { redirect } from "next/navigation";
 import { requireAuth } from "@/lib/auth-guard";
 import { prisma } from "@/lib/prisma";
 
-export default async function OnboardingLayout({ children }: { children: React.ReactNode }) {
+export default async function VerificationLayout({ children }: { children: React.ReactNode }) {
   const session = await requireAuth();
 
-  // Must be verified before onboarding
+  // If already verified, move them forward
   if (session?.user?.id) {
     const user = await prisma.user.findUnique({
       where: { id: session.user.id },
-      select: { verified: true },
+      select: { verified: true, onboarded: true },
     });
 
-    if (user && !user.verified) {
-      redirect("/verify");
+    if (user?.verified) {
+      redirect(user.onboarded ? "/dashboard" : "/onboarding");
     }
   }
 

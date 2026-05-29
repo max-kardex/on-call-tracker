@@ -17,6 +17,7 @@ model User {
   image            String?
   roles            Role[]         @default([ENGINEER])
   preferredContact ContactMethod  @default(SLACK)
+  verified         Boolean        @default(false)
   onboarded        Boolean        @default(false)
   isActive         Boolean        @default(true)
   createdAt        DateTime       @default(now())
@@ -33,6 +34,7 @@ model User {
   dayCoverages      DayCoverage[]
   ptoCompensations  PtoCompensation[]
   notifications     Notification[]
+  inviteCodesCreated InviteCode[]
 }
 
 model Account {
@@ -262,6 +264,7 @@ enum NotificationType {
   SWAP_POSTED
   COMPENSATION_UPDATED
   WEEK_ASSIGNED
+  USER_PENDING_VERIFICATION
 }
 
 model Notification {
@@ -277,4 +280,14 @@ model Notification {
 
   @@index([userId, read])
   @@index([userId, createdAt])
+}
+
+// ============ INVITE CODE ============
+
+model InviteCode {
+  id          String   @id @default(cuid())
+  code        String   @unique
+  createdById String
+  createdBy   User     @relation(fields: [createdById], references: [id])
+  createdAt   DateTime @default(now())
 }

@@ -166,6 +166,10 @@ export const api = {
     /** Toggle a user's active status (admin). */
     toggleActive: (id: string, isActive: boolean) =>
       request("/api/users", { method: "PUT", body: { id, isActive } }),
+
+    /** Approve a pending user (admin). */
+    approve: (id: string) =>
+      request(`/api/users/${id}/verify`, { method: "PUT" }),
   },
 
   // ── Profile ──────────────────────────────────────────────────────────────
@@ -215,5 +219,25 @@ export const api = {
     /** Mark all notifications as read. */
     markAllRead: () =>
       request("/api/notifications", { method: "PUT", body: { action: "mark_all_read" } }),
+  },
+
+  // ── Verification ────────────────────────────────────────────────────────
+  verify: {
+    /** Submit an invite code to verify the current user. */
+    submit: (code: string) =>
+      request<{ success: boolean }>("/api/verify", { method: "POST", body: { code } }),
+  },
+
+  // ── Invite Code ─────────────────────────────────────────────────────────
+  inviteCode: {
+    /** Get the current active invite code (admin). */
+    get: () =>
+      request<{ code: string | null; createdAt: string | null; createdBy: string | null }>(
+        "/api/invite-code"
+      ),
+
+    /** Generate/regenerate the invite code (admin). */
+    regenerate: () =>
+      request<{ code: string }>("/api/invite-code", { method: "POST" }),
   },
 };

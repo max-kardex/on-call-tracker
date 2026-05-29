@@ -28,6 +28,7 @@ export const mockPrisma = {
   slackConfig: createMockModel(),
   holiday: createMockModel(),
   notification: { ...createMockModel(), createMany: vi.fn().mockResolvedValue({ count: 0 }) },
+  inviteCode: { ...createMockModel(), deleteMany: vi.fn().mockResolvedValue({ count: 0 }) },
   $transaction: vi.fn(async (fn: any) => {
     if (typeof fn === "function") {
       return fn(mockPrisma);
@@ -72,6 +73,7 @@ export const mockNotifications = {
   notifySwapPosted: vi.fn().mockResolvedValue(undefined),
   notifyCompensationUpdated: vi.fn().mockResolvedValue(undefined),
   notifyWeekAssigned: vi.fn().mockResolvedValue(undefined),
+  notifyUserPendingVerification: vi.fn().mockResolvedValue(undefined),
 };
 
 vi.mock("@/lib/notifications", () => mockNotifications);

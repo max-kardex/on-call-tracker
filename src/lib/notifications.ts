@@ -88,3 +88,35 @@ export async function notifyWeekAssigned(
     console.error("Failed to create week assignment notification:", error);
   }
 }
+
+/**
+ * Create in-app notifications for all admins when a new user signs up.
+ * Called from NextAuth's createUser event.
+ */
+export async function notifyUserPendingVerification(
+  userName: string,
+  userEmail: string | null
+) {
+  try {
+    const admins = await prisma.user.findMany({
+      where: { isActive: true, roles: { has: "ADMIN" } },
+      select: { id: true },
+    });
+
+    if (admins.length === 0) return;
+
+    const identifier = userName || userEmail || "A new user";
+
+    await prisma.notification.createMany({
+      data: admins.map((admin) => ({
+        userId: admin.id,
+        type: "USER_PENDING_VERIFICATION" as const,
+        title: "New User Awaiting Verification",
+        message: `${identifier} signed up and is waiting for verification. Go to Settings > Team to approve.`,
+        metadata: { userName, userEmail },
+      })),
+    });
+  } catch (error) {
+    console.error("Failed to create pending verification notifications:", error);
+  }
+}
