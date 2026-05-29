@@ -240,4 +240,17 @@ export const api = {
     regenerate: () =>
       request<{ code: string }>("/api/invite-code", { method: "POST" }),
   },
+
+  // ── Calendar Token ──────────────────────────────────────────────────────
+  calendarToken: {
+    /** Get the current calendar subscription token and URL (admin). */
+    get: () =>
+      request<{ token: string | null; url: string | null; createdAt: string | null }>(
+        "/api/calendar-token"
+      ),
+
+    /** Generate/regenerate the calendar subscription token (admin). */
+    regenerate: () =>
+      request<{ token: string; url: string }>("/api/calendar-token", { method: "POST" }),
+  },
 };

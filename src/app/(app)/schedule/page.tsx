@@ -1,11 +1,13 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { headers } from "next/headers";
 import { startOfWeek, addWeeks, endOfWeek } from "date-fns";
 import { toDateString } from "@/lib/date-utils";
 import { ScheduleCalendar } from "./schedule-calendar";
 import { ScheduleMonthCalendar } from "./schedule-month-calendar";
 import { ScheduleViewToggle } from "./schedule-view-toggle";
 import { GenerateRotationForm } from "./generate-rotation-form";
+import { CalendarSubscription } from "./calendar-subscription";
 import { hasAnyRole } from "@/lib/auth-guard";
 
 export const dynamic = "force-dynamic";
@@ -48,6 +50,19 @@ export default async function SchedulePage() {
   });
 
   const canManage = hasAnyRole(session, ["ADMIN", "MANAGER"]);
+
+  // Fetch the calendar subscription token
+  const calendarToken = await prisma.calendarToken.findFirst({
+    orderBy: { createdAt: "desc" },
+  });
+
+  let calendarUrl: string | null = null;
+  if (calendarToken) {
+    const headersList = await headers();
+    const host = headersList.get("host") || "localhost:3000";
+    const proto = headersList.get("x-forwarded-proto") || "http";
+    calendarUrl = `${proto}://${host}/api/schedule/calendar.ics?token=${calendarToken.token}`;
+  }
 
   // Identify engineers who have self-assigned in the upcoming window (they'll be deprioritized)
   const selfAssignedIds = [...new Set(
@@ -123,6 +138,8 @@ export default async function SchedulePage() {
           />
         }
       />
+
+      <CalendarSubscription initialUrl={calendarUrl} isAdmin={canManage} />
     </div>
   );
 }

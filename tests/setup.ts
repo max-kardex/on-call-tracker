@@ -29,6 +29,7 @@ export const mockPrisma = {
   holiday: createMockModel(),
   notification: { ...createMockModel(), createMany: vi.fn().mockResolvedValue({ count: 0 }) },
   inviteCode: { ...createMockModel(), deleteMany: vi.fn().mockResolvedValue({ count: 0 }) },
+  calendarToken: { ...createMockModel(), deleteMany: vi.fn().mockResolvedValue({ count: 0 }) },
   $transaction: vi.fn(async (fn: any) => {
     if (typeof fn === "function") {
       return fn(mockPrisma);

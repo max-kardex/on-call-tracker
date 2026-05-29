@@ -291,3 +291,11 @@ model InviteCode {
   createdBy   User     @relation(fields: [createdById], references: [id])
   createdAt   DateTime @default(now())
 }
+
+// ============ CALENDAR TOKEN ============
+
+model CalendarToken {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  createdAt DateTime @default(now())
+}

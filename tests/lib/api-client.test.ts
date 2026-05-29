@@ -454,3 +454,29 @@ describe("api.users.approve", () => {
     expect(url).toBe("/api/users/user-123/verify");
   });
 });
+
+// ─── Calendar Token ──────────────────────────────────────────────────────────
+
+describe("api.calendarToken", () => {
+  it("get() calls GET /api/calendar-token", async () => {
+    mockFetch.mockResolvedValueOnce(
+      jsonResponse({ token: "abc123", url: "https://example.com/api/schedule/calendar.ics?token=abc123", createdAt: "2026-01-01" })
+    );
+    const result = await api.calendarToken.get();
+    const { url, method } = lastFetchCall();
+    expect(method).toBe("GET");
+    expect(url).toBe("/api/calendar-token");
+    expect(result.token).toBe("abc123");
+  });
+
+  it("regenerate() calls POST /api/calendar-token", async () => {
+    mockFetch.mockResolvedValueOnce(
+      jsonResponse({ token: "newtoken123", url: "https://example.com/api/schedule/calendar.ics?token=newtoken123" })
+    );
+    const result = await api.calendarToken.regenerate();
+    const { url, method } = lastFetchCall();
+    expect(method).toBe("POST");
+    expect(url).toBe("/api/calendar-token");
+    expect(result.token).toBe("newtoken123");
+  });
+});
